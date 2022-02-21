@@ -1,0 +1,12 @@
+1,RasD,RasT
+2,RasT,RasD
+3,RasT Raf,RasT RafP
+4,RafP,Raf
+5,RafP Mek,RafP MekP
+6,MekP,Mek
+7,RafP MekP,RafP MekPP
+8,MekPP,MekP
+9,MekPP Erk,ErkP MekPP
+10,ErkP,Erk
+11,MekPP ErkP,ErkPP MekPP
+12,ErkPP,ErkP
