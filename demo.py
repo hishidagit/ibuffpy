@@ -13,6 +13,8 @@ import csv
 # read csv of reaction data
 
 networkName = 'demo_MAPK'
+# networkName = 'demo_network1'
+
 with open(f'./{networkName}.csv', 'r') as f:
     reader = csv.reader(f)
     reaction_list = [[reac[0], reac[1].split(' '), reac[2].split(' ')] for reac in reader]
