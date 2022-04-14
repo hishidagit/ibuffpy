@@ -8,6 +8,8 @@ import ReactionNetwork
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
+import importlib
+importlib.reload(ReactionNetwork)
 # %%
 # network is defied by a list of reactions
 # read csv of reaction data
@@ -21,9 +23,18 @@ with open(f'./{networkName}.csv', 'r') as f:
 # %%
 # construct a class
 network = ReactionNetwork.ReactionNetwork(reaction_list)
+#%%
+#conserved quantities
+print(network.cons_list)
+print(network.cons_list_index)
 # %%
 # limitset
 limitset_list = network.find_limitset_meansmat(N=100)
+#%%
+hoge=ReactionNetwork.compute_limitset(network)
+print([a[0] for a in hoge])
+#%%
+network.make_hieredge(hoge)
 # %%
 # draw a hierarchy
 #pygraphviz is required

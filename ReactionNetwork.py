@@ -3,7 +3,8 @@
 import numpy as np
 from scipy import linalg
 import networkx as nx
-
+import func.compute_limitset_meansmat
+import func.compute_rref
 
 class ReactionNetwork:
 
@@ -48,9 +49,14 @@ class ReactionNetwork:
         self.cpd_list_noout = cpd_list_noout
         self.stoi = self.make_stoi()
         self.ns = linalg.null_space(self.stoi)
-        self.ns2 = linalg.null_space(self.stoi.T).T
+        self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
         self.A = self.M+len(self.ns.T)
         self.graph = [cpd_list_noout, reaction_list]
+        self.cons_list, self.cons_list_index=self.make_conslist()
+
+        self.reac_cons_list=self.reaction_list+self.cons_list
+
+
 
     def info(self):
         print(f'M = {self.M}')
@@ -75,6 +81,24 @@ class ReactionNetwork:
                 cpd_pro = self.reaction_list_noid[r][1].count(cpd)  # proに出現する回数
                 stoi[m, r] = -cpd_sub+cpd_pro
         return stoi
+
+    def make_conslist(self):
+        #return the list of conserved quantities
+        cons_list=[]
+        cons_list_index=[]
+        ns2=self.ns2
+        #metabolites are identified by its name
+        for c in range(len(ns2)):
+            m_list=[self.cpd_list_noout[m] for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
+            cons=['cons_'+str(c), m_list]
+            cons_list.append(cons)
+        #index of metabolites
+        for c in range(len(ns2)):
+            m_list=[m for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
+            cons=['cons_'+str(c), m_list]
+            cons_list_index.append(cons)
+        
+        return cons_list, cons_list_index
 
     def compute_amat(self):
         R = self.R
@@ -145,7 +169,8 @@ class ReactionNetwork:
         smat_mean = self.compute_smat_mean(N=N)
 
         # smat_meanをもとにしてlimitsetを出す
-
+        
+        #smatをbinaryに変換
         smat2 = np.zeros((A, A), dtype='int')
         for i in range(A):
             for j in range(A):
@@ -380,4 +405,7 @@ class ReactionNetwork:
             if not set(reac[1]).isdisjoint(set(subm_list)):
                 subr_list.append(reac[0])
         return [subm_list, subr_list]
-# %%
+
+def compute_limitset(network):
+    return func.compute_limitset_meansmat.compute_limitset_meansmat(network)
+
