@@ -5,6 +5,7 @@ from scipy import linalg
 import networkx as nx
 import func.compute_limitset_meansmat
 import func.compute_rref
+import func.make_hiergraph
 
 class ReactionNetwork:
 
@@ -409,3 +410,5 @@ class ReactionNetwork:
 def compute_limitset(network):
     return func.compute_limitset_meansmat.compute_limitset_meansmat(network)
 
+def make_hiergraph(limitset_list):
+    return func.make_hiergraph.make_hiergraph(limitset_list)

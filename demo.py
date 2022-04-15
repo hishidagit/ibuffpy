@@ -29,29 +29,11 @@ print(network.cons_list)
 print(network.cons_list_index)
 # %%
 # limitset
-limitset_list = network.find_limitset_meansmat(N=100)
-#%%
-hoge=ReactionNetwork.compute_limitset(network)
-print([a[0] for a in hoge])
-#%%
-network.make_hieredge(hoge)
+limitset_list = ReactionNetwork.compute_limitset(network)
 # %%
 # draw a hierarchy
 #pygraphviz is required
-hieredge_list = network.make_hieredge(limitset_list)
-
-hier = []
-pick = []
-for edge in hieredge_list:
-    s = ' '.join(edge[0])
-    t = ' '.join(edge[1])
-    hier.append([network.short_name(s), network.short_name(t)])
-    pick.extend(list(edge))
-
-
-hier_graph = nx.DiGraph(hier)
-hier_agraph = nx.nx_agraph.to_agraph(hier_graph)
-hier_agraph.layout(prog='dot')
+hier_agraph = ReactionNetwork.make_hiergraph(limitset_list)
 hier_agraph.draw(f'./hier_{networkName}.png')
 # %%
 # A matrix

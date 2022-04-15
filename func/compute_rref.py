@@ -3,7 +3,8 @@ import numpy as np
 def compute_rref(matrix):
     import numpy as np
     mat=np.array(matrix)
-    
+    if len(mat)==0:
+        return mat #empty matrix
     rank=np.linalg.matrix_rank(mat)
     
     row=len(mat)
