@@ -17,12 +17,11 @@ importlib.reload(ReactionNetwork)
 networkName = 'demo_MAPK'
 # networkName = 'demo_network1'
 
-with open(f'./{networkName}.csv', 'r') as f:
-    reader = csv.reader(f)
-    reaction_list = [[reac[0], reac[1].split(' '), reac[2].split(' ')] for reac in reader]
 # %%
+#path to csv
+reaction_path=f'./{networkName}.csv'
 # construct a class
-network = ReactionNetwork.ReactionNetwork(reaction_list)
+network = ReactionNetwork.from_csv(reaction_path)
 #%%
 #conserved quantities
 print(network.cons_list)

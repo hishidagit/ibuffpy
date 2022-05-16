@@ -1,58 +1,68 @@
 # %%
-
+import csv
 import numpy as np
 from scipy import linalg
 import networkx as nx
 import func.compute_limitset_meansmat
 import func.compute_rref
 import func.make_hiergraph
+import func.compute_smat
+'''
+format of reaction_list
+= [('reaction0', [substrate0, substrate1], [product0, product1])
+    ('reaction1', [substrate0], [product2], [regulator0, regulator1])]
+'''
 
 class ReactionNetwork:
-
-    def __init__(self, reaction_list, info=True):
+    def __init__(self, reaction_list_input, info=True):
         if info:
             print('constructed.')
-        if len(reaction_list[0]) == 3:
-            self.reaction_list = reaction_list
-            self.reaction_list_noid = [[reac[1], reac[2]]
-                                       for reac in reaction_list]
-        else:
-            print('reaction_list format is not correct.')
-            1/0
 
-        self.reactionNames = [reac[0] for reac in reaction_list]
+        #regulation 
+        _reaction_list=[]
+        for reac in reaction_list_input:
+            if len(reac)==3:
+                _reaction_list.append(reac)
+            elif len(reac)==4:
+                _reaction_list.append([reac[0], reac[1]+reac[3], reac[2]+reac[3]])
+            else:
+                print('reaction_list format is not correct.')
+                1/0
 
-        cpd_list = []
+        self.reaction_list=_reaction_list
+        self.reaction_list_noid = [[reac[1], reac[2]]
+                                    for reac in self.reaction_list]
+        self.reactionNames = [reac[0] for reac in self.reaction_list]
+
+        self.cpd_list = []
         for rn in self.reaction_list_noid:
             for form in [rn[0], rn[1]]:
                 for cpd in form:
-                    if not cpd in cpd_list:
-                        cpd_list.append(cpd)
-        cpd_list = sorted(cpd_list)
-        self.cpd_list = cpd_list
+                    if not cpd in self.cpd_list:
+                        self.cpd_list.append(cpd)
+        self.cpd_list = sorted(self.cpd_list)
 
         self.R = len(self.reaction_list_noid)
         self.M = len(self.cpd_list)
         if 'out' in self.cpd_list:
             self.M -= 1
-            cpd_list_noout = cpd_list.copy()
-            cpd_list_noout.remove('out')
+            self.cpd_list_noout = self.cpd_list.copy()
+            self.cpd_list_noout.remove('out')
             if info:
-                print('outあり')
+                print('out node')
         else:
-            cpd_list_noout = cpd_list.copy()
+            self.cpd_list_noout = self.cpd_list.copy()
             if info:
-                print('outなし')
+                print('no out node')
         if info:
             print('M = ', self.M)
             print('R = ', self.R)
 
-        self.cpd_list_noout = cpd_list_noout
         self.stoi = self.make_stoi()
-        self.ns = linalg.null_space(self.stoi)
+        self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
         self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
         self.A = self.M+len(self.ns.T)
-        self.graph = [cpd_list_noout, reaction_list]
+        self.graph = [self.cpd_list_noout, self.reaction_list]
         self.cons_list, self.cons_list_index=self.make_conslist()
 
         self.reac_cons_list=self.reaction_list+self.cons_list
@@ -126,188 +136,10 @@ class ReactionNetwork:
         return amat
 
     def compute_smat(self):
-        R = self.R
-        M = self.M
-
-        ns = self.ns
-        ns2 = self.ns2
-
-        A = R+len(ns2)
-        if R+len(ns2) != M+len(ns.T):
-            print('A行列が正方行列でない')
-            1/0
-
-        amat = self.compute_amat()
-        # smat計算
-        smat = np.linalg.inv(amat)
-
-        return smat
+        return func.compute_smat.compute_smat(self)
 
     def compute_smat_mean(self, N=10):
-
-        # smatをN回計算して，平均を取る
-        smat_all = np.array([self.compute_smat() for i in range(N)])
-        smat_mean = np.mean(smat_all, axis=0)
-
-        # 閾値が1.0e-10なので，その周辺の値があると誤差の影響があるかもしれない
-        np_mean_check = np.where(
-            (smat_mean < 1.0e-8) & (smat_mean > 1.0e-10), 1, 0)
-        if np.sum(np_mean_check) == 0.0:
-            0
-        else:
-            print('large error')
-
-        return smat_mean
-
-    def find_limitset_meansmat(self, N=10):  # N;smatの計算回数
-
-        M = self.M
-        R = self.R
-        cpd_list_noout = self.cpd_list_noout
-        reaction_list = self.reaction_list
-        A = R+len(self.ns2)  # smatのサイズ
-
-        smat_mean = self.compute_smat_mean(N=N)
-
-        # smat_meanをもとにしてlimitsetを出す
-        
-        #smatをbinaryに変換
-        smat2 = np.zeros((A, A), dtype='int')
-        for i in range(A):
-            for j in range(A):
-                if abs(smat_mean[i, j]) < 1.0e-10:
-                    smat2[i, j] = 0
-                else:
-                    smat2[i, j] = 1
-
-        # 限局集合を求めるのに使う関数
-        # 注意:次の関数はsmat2, cpd_list_noout, raction_list3に依存する
-
-        def choose_m(r_list, smat2, cpd_list_noout):  # 反応を与えて、それが影響する物質のリストを返す
-            m_list = []
-            for reac in r_list:
-                r = reaction_list.index(reac)
-                for m in range(M):
-                    if smat2[m, r] == 1:
-                        m_list.append(cpd_list_noout[m])
-            m_list = list(set(m_list))
-            return m_list
-
-        def choose_r(m_list):  # 物質のリストを与えて、outputcompleteになるための反応のリストを返す
-            r_list = []
-            for reac in reaction_list:
-                if set(reac[1]) & set(m_list) != set():
-                    r_list.append(reac)
-            return r_list
-
-        # smat2から限局集合を出す
-        # 各反応から始める。反応はindexで扱う
-        limitsets_found = []
-        for reac in reaction_list:
-            eff_m = []
-            eff_r = [reac]
-            eff_r2 = []  # 新たに追加する反応のリスト
-
-            while True:
-                # eff_rが影響する物質
-                # 注意:次の関数はsmat2, cpd_list_noout, raction_listに依存する
-                eff_m = sorted(list( set(eff_m) | set(choose_m(eff_r, smat2, cpd_list_noout)) ))
-                eff_r2 = [reac for reac in choose_r(
-                    eff_m) if (reac not in eff_r)]
-                if eff_r2 == []:  # 新しく追加する反応がない
-                    break
-
-                eff_r.extend(eff_r2)
-
-            if (eff_m, eff_r) not in limitsets_found:
-                limitsets_found.append((eff_m, eff_r))
-
-        # limitset_listを並びかえ
-        hoge = []
-        i = 0
-        while i < M+R+1:
-            for lset in limitsets_found:
-                if len(lset[0])+len(lset[1]) == i:
-                    hoge.append(lset)
-            i += 1
-        limitset_list = hoge
-
-        return limitset_list
-
-    def make_hiermat(self, limitset_list):
-        # return a matrix representing hierarchy
-
-        limitset_list_all = []
-        for lset in limitset_list:
-            lset_all = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
-            limitset_list_all.append(lset_all)
-
-        l = len(limitset_list_all)
-
-        relmat = np.zeros((l, l), dtype=int)  # limitsetの包含関係を表す行列
-        # 列<行のときにrelmatの要素を1にする
-        for i, s in enumerate(limitset_list_all):
-            for j, t in enumerate(limitset_list_all):
-                if set(t) < set(s):
-                    relmat[i, j] = 1
-
-        relmat2 = []  # さらに下流
-        for i in range(l):
-            row = np.dot(relmat[i], relmat)
-            row2 = np.array([1 if p > 0 else 0 for p in row])
-            relmat2.append(row2)
-        relmat2 = np.array(relmat2)
-
-        hiermat = relmat-relmat2
-        if np.min(hiermat) < 0:
-            print('包含関係が成り立たない')
-            1/0
-        return hiermat
-
-    def make_hieredge(self, limitset_list):
-        # return a hierarchy graph as a list of edges
-
-        limitset_list_all = []  # reactionとcompoundを一緒のリストにする
-        for lset in limitset_list:
-            lset_all = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
-            limitset_list_all.append(lset_all)
-
-        l = len(limitset_list_all)
-        hiermat = self.make_hiermat(limitset_list)
-
-        # ヒエラルキーグラフのノードを作成
-        node_list = []
-        for i in range(l):
-            elim = set()
-            for j in range(l):
-                if hiermat[i, j] == 1:  # jがiに含まれる
-                    elim |= set(limitset_list_all[j])  # iのノードからjを除く
-            node = sorted(list(set(limitset_list_all[i])-elim))
-
-            node_list.append(node)
-
-        # ヒエラルキーのエッジを作成
-        edge_list = []
-        for i, s in enumerate(node_list):  # source
-            for j, t in enumerate(node_list):  # target
-                if hiermat[i, j] == 1:
-                    edge_list.append((s, t))
-
-        return edge_list
-
-    def make_hiergraph(self, hieredge_list):
-        hier = []
-        pick = []
-        for edge in hieredge_list:
-            s = ' '.join(edge[0])
-            t = ' '.join(edge[1])
-            hier.append([self.short_name(s), self.short_name(t)])
-            pick.extend(list(edge))
-
-        hier_graph = nx.DiGraph(hier)
-        hier_agraph = nx.nx_agraph.to_agraph(hier_graph)
-        hier_agraph.layout(prog='dot')
-        return hier_agraph
+        return func.compute_smat.compute_smat_mean(self, N)
 
     def check_ocomp(self, subg):
         # subgの反応は，reaction_listのindexで与える
@@ -412,3 +244,15 @@ def compute_limitset(network):
 
 def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
+# %%
+def from_csv(path):
+    reaction_list=[]
+    with open(path, 'r') as f:
+        reader = csv.reader(f)
+        for line in reader:
+            reaction=[]
+            reaction.append(line[0])
+            for elem in line[1:]:
+                reaction.append(elem.split(' '))
+            reaction_list.append(reaction)
+    return ReactionNetwork(reaction_list)

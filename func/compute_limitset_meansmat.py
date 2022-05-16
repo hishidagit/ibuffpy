@@ -1,5 +1,6 @@
+#%%
 import numpy as np
-
+from . import compute_smat
 def compute_limitset_meansmat(network, N=10):  # N;smatの計算回数
 
     M = network.M
@@ -8,7 +9,7 @@ def compute_limitset_meansmat(network, N=10):  # N;smatの計算回数
     reaction_list = network.reaction_list
     A = R+len(network.ns2)  # smatのサイズ
 
-    smat_mean = network.compute_smat_mean(N=N)
+    smat_mean = compute_smat.compute_smat_mean(network,N=N)
 
     # smat_meanをもとにしてlimitsetを出す
     
@@ -81,3 +82,4 @@ def choose_rc(m_list, network):
         if set(reacCons[1]) & set(m_list) != set():
             rc_list.append(reacCons)
     return rc_list
+# %%
