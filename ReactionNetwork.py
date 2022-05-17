@@ -7,6 +7,7 @@ import func.compute_limitset_meansmat
 import func.compute_rref
 import func.make_hiergraph
 import func.compute_smat
+
 '''
 format of reaction_list
 = [('reaction0', [substrate0, substrate1], [product0, product1])
@@ -168,14 +169,14 @@ class ReactionNetwork:
 
     def compute_cons(self, sub_m_list):
         # 物質のリストを与えて，保存量数を返す
-        if len(self.ns2) == 0:
+
+        if not self.ns2:#no cons exists
             num_cons = 0
+
         else:
-            nsub_m_index = []
-            for m in range(self.M):
-                if self.cpd_list_noout[m] not in sub_m_list:
-                    nsub_m_index.append(m)
-            if len(nsub_m_index) == 0:  # すべての物質を含む
+            nsub_m_index = [m for m in range (self.M) 
+                            if self.cpd_list_noout[m] not in sub_m_list]
+            if not nsub_m_index:  # すべての物質を含む
                 num_cons = len(self.ns2)
             else:
                 nsubstoi = self.stoi[nsub_m_index, :]
@@ -198,25 +199,10 @@ class ReactionNetwork:
         ns2 = self.ns2
 
         # 部分グラフに含まれるサイクル数
-        if len(sub_r_index) == 0:  # 反応が含まれない
-            num_cyc = 0
-        else:
-            sub_rstoi = stoi[:, sub_r_index]
-            num_cyc = len(linalg.null_space(sub_rstoi).T)
+        num_cyc =self.compute_cyc(sub_r_index)
 
         # 保存量数
-        if len(ns2) == 0:
-            num_cons = 0
-        else:
-            nsub_m_index = []
-            for m in range(self.M):
-                if cpd_list_noout[m] not in sub_m_list:
-                    nsub_m_index.append(m)
-            if len(nsub_m_index) == 0:  # すべての物質を含む
-                num_cons = len(ns2)
-            else:
-                nsubstoi = stoi[nsub_m_index, :]
-                num_cons = len(ns2)-len(linalg.null_space(nsubstoi.T).T)
+        num_cons=self.compute_cons (sub_m_list) 
 
         index = len(sub_m_list)+num_cyc-len(sub_r_index)-num_cons
 
@@ -229,8 +215,6 @@ class ReactionNetwork:
             name = name[:(i+1)*N]+'\n'+name[(i+1)*N:]
         return name
 
-
-
     def make_ocompSubg(self, subm_list):
         reaction_list = self.reaction_list
         subr_list = []
@@ -241,6 +225,9 @@ class ReactionNetwork:
 
 def compute_limitset(network):
     return func.compute_limitset_meansmat.compute_limitset_meansmat(network)
+
+def make_hieredge(limitset_list):
+    return func.make_hiergraph.make_hieredge(limitset_list)
 
 def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
