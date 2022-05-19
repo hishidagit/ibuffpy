@@ -2,6 +2,7 @@
 import csv
 import numpy as np
 from scipy import linalg
+import sympy
 import networkx as nx
 import func.compute_limitset_meansmat
 import func.compute_rref
@@ -60,8 +61,13 @@ class ReactionNetwork:
             print('R = ', self.R)
 
         self.stoi = self.make_stoi()
-        self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
-        self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
+
+        #nullspace is calculated by sympy(algebraic computation) for visuality.
+        ns_sp=sympy.Matrix(self.stoi).nullspace()
+        self.ns=np.concatenate([np.array(vec, dtype=float) for vec in ns_sp], axis=1)
+        ns2_sp=sympy.Matrix(self.stoi.T).nullspace()
+        self.ns2=np.concatenate([np.array(vec, dtype=float) for vec in ns2_sp ], axis=1).T
+
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
         self.cons_list, self.cons_list_index=self.make_conslist()
