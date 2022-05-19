@@ -15,7 +15,7 @@ importlib.reload(ReactionNetwork)
 # read csv of reaction data
 
 networkName = 'demo_MAPK'
-# networkName = 'demo_network1'
+networkName = 'demo_network1'
 
 # %%
 #path to csv

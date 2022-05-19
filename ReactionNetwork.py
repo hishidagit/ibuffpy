@@ -61,12 +61,23 @@ class ReactionNetwork:
             print('R = ', self.R)
 
         self.stoi = self.make_stoi()
+        # self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
+        # self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
 
-        #nullspace is calculated by sympy(algebraic computation) for visuality.
+        #nullspace is calculated by sympy(algebraic computation) for visuality
         ns_sp=sympy.Matrix(self.stoi).nullspace()
-        self.ns=np.concatenate([np.array(vec, dtype=float) for vec in ns_sp], axis=1)
+        
+        if len(ns_sp)==0:
+            self.ns=np.empty((self.R,0))
+        else:
+            self.ns=np.concatenate([np.array(vec, dtype=float) for vec in ns_sp], axis=1)
+
         ns2_sp=sympy.Matrix(self.stoi.T).nullspace()
-        self.ns2=np.concatenate([np.array(vec, dtype=float) for vec in ns2_sp ], axis=1).T
+
+        if len(ns2_sp)==0:
+            self.ns2=np.empty((0,self.M))
+        else:
+            self.ns2=np.concatenate([np.array(vec, dtype=float) for vec in ns2_sp ], axis=1).T
 
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
