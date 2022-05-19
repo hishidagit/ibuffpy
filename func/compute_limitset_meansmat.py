@@ -47,14 +47,7 @@ def compute_limitset_meansmat(network, N=10):  # N;smatの計算回数
             limitsets_found.append((eff_m, eff_rc))
 
     # limitset_listを並びかえ
-    hoge = []
-    i = 0
-    while i < M+R+1:
-        for lset in limitsets_found:
-            if len(lset[0])+len(lset[1]) == i:
-                hoge.append(lset)
-        i += 1
-    limitset_list = hoge
+    limitset_list=sorted(limitsets_found, key=lambda x: len (x[0])+len (x[1]))
 
     return limitset_list
 

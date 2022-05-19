@@ -99,11 +99,13 @@ class ReactionNetwork:
         cons_list=[]
         cons_list_index=[]
         ns2=self.ns2
+        
         #metabolites are identified by its name
         for c in range(len(ns2)):
             m_list=[self.cpd_list_noout[m] for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
             cons=['cons_'+str(c), m_list]
             cons_list.append(cons)
+
         #index of metabolites
         for c in range(len(ns2)):
             m_list=[m for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
