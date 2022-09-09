@@ -1,7 +1,7 @@
 #%%
 import numpy as np
 from . import compute_smat
-def compute_limitset_meansmat(network, N=10):  # N;smatの計算回数
+def compute_limitset_meansmat(network, N):  # N;smatの計算回数
 
     M = network.M
     R = network.R

@@ -1,0 +1,14 @@
+README.md
+setup.py
+src/SSA/ReactionNetwork.py
+src/SSA/__init__.py
+src/SSA/massaction.py
+src/SSA.egg-info/PKG-INFO
+src/SSA.egg-info/SOURCES.txt
+src/SSA.egg-info/dependency_links.txt
+src/SSA.egg-info/top_level.txt
+src/SSA/func/__init__.py
+src/SSA/func/compute_limitset_meansmat.py
+src/SSA/func/compute_rref.py
+src/SSA/func/compute_smat.py
+src/SSA/func/make_hiergraph.py

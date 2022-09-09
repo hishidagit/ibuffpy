@@ -18,7 +18,7 @@ def compute_smat(network):
 
     return smat
 
-def compute_smat_mean(network, N=10):
+def compute_smat_mean(network, N):
 
     # calculate smat for N times, get mean
     smat_all = np.array([compute_smat(network) for i in range(N)])
@@ -26,7 +26,7 @@ def compute_smat_mean(network, N=10):
 
     # check error size
     np_mean_check = np.where(
-        (smat_mean < 1.0e-8) & (smat_mean > 1.0e-10), 1, 0)
+        (np.abs(smat_mean) < 1.0e-8) & (np.abs(smat_mean) > 1.0e-10), 1, 0)
     if np.sum(np_mean_check) == 0.0:
         0
     else:

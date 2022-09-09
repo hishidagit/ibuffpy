@@ -1,5 +1,6 @@
 #fluxを計算する
 import numpy as np
+from tqdm import tqdm
 
 def make_reguMat(network):
     # reaction and its substrates
@@ -10,15 +11,27 @@ def make_reguMat(network):
     reguMat=np.array(reguMat)
     return reguMat
 
-def compute_flux(network,x,params):
+def activation(x):
+    return x/(1+x)
+
+def inhibition(x):
+    return 1/(1+x)
+
+def compute_flux(network,x,reguMat,params,activate=None,inhibit=None):
+    #activate/inhibit=[(index_substrate, index_reaction),...]
     M=network.M
     R=network.R
-    reguMat=make_reguMat(network)
-
     consCoef=np.array([x[m]**reguMat[m] for m in range(M)])
     consProd=np.prod(consCoef, axis=0)
     flux=params*consProd
+
+    for (m,r) in activate:
+        flux[r]*=activation(x[m])
+    for (m,r) in inhibit:
+        flux[r]*=inhibition(x[m])
+    
     return flux
+
 
 def perturb(network, ini, steps, params, perturbed, dt=0.01):
     # numcalc of the network, petrubation to a specific reaction
@@ -26,6 +39,7 @@ def perturb(network, ini, steps, params, perturbed, dt=0.01):
     # perturbed=[reactionName, perburbation]
     M = network.M
     R = network.R
+    reguMat=make_reguMat(network)
 
     for i, reac in enumerate(network.reaction_list):
         if reac[0] == perturbed[0]:
@@ -35,24 +49,16 @@ def perturb(network, ini, steps, params, perturbed, dt=0.01):
     ans = np.zeros((steps[1], M))
     ans[0] = ini
 
-    for n in range(1, steps[0]):
-        flux = compute_flux(network, ans[n-1], params)
+    for n in tqdm(range(1, steps[1])):
+        if n<steps[0]+1:
+            flux = compute_flux(network, ans[n-1], reguMat, params)
+        else:
+            flux=compute_flux(network, ans[n-1], reguMat, params2)
+            
         ans[n] = ans[n-1]+np.dot(network.stoi, flux)*dt
-        if np.max(ans) > 1.0e20:
+        if np.max(ans[n]) > 1.0e20:
             print(n)
             print('overflow')
             break
-        if n % 1000 == 0:
-            print(n)
-
-    for n in range(steps[0], steps[1]):
-        flux = compute_flux(network, ans[n-1], params2)
-        ans[n] = ans[n-1]+np.dot(network.stoi, flux)*dt
-        if np.max(ans) > 1.0e20:
-            print(n)
-            print('overflow')
-            break
-        if n % 1000 == 0:
-            print(n)
     
     return ans
