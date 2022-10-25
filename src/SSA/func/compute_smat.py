@@ -1,4 +1,5 @@
 import numpy as np
+from SSA import ReactionNetwork
 
 def compute_smat(network):
     R = network.R
@@ -18,18 +19,29 @@ def compute_smat(network):
 
     return smat
 
-def compute_smat_mean(network, N):
+def compute_smat_mean(network, N, large_error=True):
 
     # calculate smat for N times, get mean
-    smat_all = np.array([compute_smat(network) for i in range(N)])
-    smat_mean = np.mean(smat_all, axis=0)
+    
+    # #when network is large, np.mean requires too much memory
+    # smat_all = np.array([compute_smat(network) for i in range(N)])
+    # smat_mean = np.mean(smat_all, axis=0)
 
+    smat_sum=np.zeros((network.A, network.A))
+    for n in range(N):
+        smat_sum+=compute_smat(network)
+    smat_mean=smat_sum/N
+    
     # check error size
     np_mean_check = np.where(
         (np.abs(smat_mean) < 1.0e-8) & (np.abs(smat_mean) > 1.0e-10), 1, 0)
     if np.sum(np_mean_check) == 0.0:
         0
     else:
-        print('large error')
+        if large_error:
+            raise ReactionNetwork.LargeErrorSmat('smat_mean have large error.')
+        else:
+            print('large error warning')
 
     return smat_mean
+

@@ -17,7 +17,7 @@ def activation(x):
 def inhibition(x):
     return 1/(1+x)
 
-def compute_flux(network,x,reguMat,params,activate=None,inhibit=None):
+def compute_flux(network,x,reguMat,params,activate=[],inhibit=[]):
     #activate/inhibit=[(index_substrate, index_reaction),...]
     M=network.M
     R=network.R
@@ -59,6 +59,6 @@ def perturb(network, ini, steps, params, perturbed, dt=0.01):
         if np.max(ans[n]) > 1.0e20:
             print(n)
             print('overflow')
-            break
+            return ans
     
     return ans

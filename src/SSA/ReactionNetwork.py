@@ -2,7 +2,6 @@
 import csv
 import numpy as np
 from scipy import linalg
-import networkx as nx
 import pandas as pd
 # import func.compute_limitset_meansmat
 # import func.compute_rref
@@ -105,9 +104,9 @@ class ReactionNetwork:
         print(f'R = {self.R}')
         
         if 'out' in self.cpd_list:
-            print('outあり')
+            print('outnode exists')
         else:
-            print('outなし')
+            print('no outnode')
         
         print('cyc = ', len(self.ns.T))
         print('cons = ', len(self.ns2))
@@ -157,13 +156,13 @@ class ReactionNetwork:
         amat[R:A, :M] = -ns2
         amat[:R, M:A] = -ns
 
-        # rmat作成
+        # create rmat
         rmat = np.zeros((R, M))
         for r in range(R):
             for m in range(M):
                 if cpd_list_noout[m] in reaction_list_noid[r][0]:  # subに含まれる
                     rmat[r, m] = np.random.rand()
-        # amat作成
+        # create amat
         amat[:R, :M] = rmat
 
         return amat
@@ -171,7 +170,7 @@ class ReactionNetwork:
     def compute_smat(self):
         return func.compute_smat.compute_smat(self)
 
-    def compute_smat_mean(self, N=10):
+    def compute_smat_mean(self, N=10, large_error=False):
         return func.compute_smat.compute_smat_mean(self, N)
 
     def check_ocomp(self, subg):
@@ -212,7 +211,9 @@ class ReactionNetwork:
                 num_cons = len(self.ns2)
             else:
                 nsubstoi = self.stoi[nsub_m_index, :]
-                num_cons = len(self.ns2)-len(linalg.null_space(nsubstoi.T).T)
+                # num_cons = len(self.ns2)-len(linalg.null_space(nsubstoi.T).T)
+                # if network is large, null_space calculation does not converge
+                num_cons=len(self.ns2)-(len(nsub_m_index)-np.linalg.matrix_rank(nsubstoi))
         return num_cons
 
     def index_subg(self, subg):
@@ -264,10 +265,10 @@ class ReactionNetwork:
             return df_reaction
 
         else:
-            print(maxlen_reaction,'inhibitor/activator is not supported')
+            print(maxlen_reaction,'inhibitor/activator is not supported in this function')
 
-def compute_limitset(network,N=10):
-    return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N)
+def compute_limitset(network,N=10,large_error=True):
+    return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error)
 
 def make_hieredge(limitset_list):
     return func.make_hiergraph.make_hieredge(limitset_list)
@@ -275,7 +276,7 @@ def make_hieredge(limitset_list):
 def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
 # %%
-def from_csv(path):
+def from_csv(path,info=False):
     reaction_list=[]
     with open(path, 'r') as f:
         reader = csv.reader(f)
@@ -287,4 +288,7 @@ def from_csv(path):
                 [_cpds.append(cpd) for cpd in cpds.split(' ') if cpd!='']
                 reaction.append(_cpds)
             reaction_list.append(reaction)
-    return ReactionNetwork(reaction_list)
+    return ReactionNetwork(reaction_list,info=info)
+#%%
+class LargeErrorSmat(Exception):
+    pass
