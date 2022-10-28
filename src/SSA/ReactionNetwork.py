@@ -16,7 +16,7 @@ format of reaction_list
 '''
 
 class ReactionNetwork:
-    def __init__(self, reaction_list_input, info=False):
+    def __init__(self, reaction_list_input, info=True):
         if info:
             print('constructed.')
         
@@ -111,7 +111,8 @@ class ReactionNetwork:
         print('cyc = ', len(self.ns.T))
         print('cons = ', len(self.ns2))
         
-        print('det A = ', np.linalg.matrix_rank(self.compute_amat()))
+        print('rank A = ', np.linalg.matrix_rank(self.compute_amat()))
+        print('det A = ', np.linalg.det(self.compute_amat()))
 
     def make_stoi(self):
         stoi = np.zeros((self.M, self.R), dtype=float)
