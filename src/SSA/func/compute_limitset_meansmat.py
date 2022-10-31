@@ -7,13 +7,12 @@ def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算�
     R = network.R
     cpd_list_noout = network.cpd_list_noout
     reaction_list = network.reaction_list
-    A = R+len(network.ns2)  # smatのサイズ
+    A = R+len(network.ns2)  # sieze of smat
 
     smat_mean = compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
 
-    # smat_meanをもとにしてlimitsetを出す
     
-    #smatをbinaryに変換
+    #conver smat to binary form
     smat2 = np.zeros((A, A), dtype='int')
     for i in range(A):
         for j in range(A):
@@ -24,29 +23,30 @@ def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算�
 
 
 
-    # smat2から限局集合を出す
-    # 各反応から始める。反応はindexで扱う
+    # compute limitsets from smat
+    # start from each reaction.
     limitsets_found = []
     for perturbed in network.reac_cons_list:
         eff_m = []
         eff_rc = [perturbed]
-        eff_rc2 = []  # 新たに追加する反応のリスト
+        eff_rc2 = []  # new reactions to be added
 
         while True:
-            # eff_rcが影響する物質
-            eff_m = sorted(list( set(eff_m) | set(choose_m(eff_rc, smat2, network)) ))
-
-
+            # cpds affected perturbation on reacs in "eff_rc"
+            eff_m=sorted(list(set(eff_m + choose_m(eff_rc,smat2,network))))
             eff_rc2 = [reac for reac in choose_rc(eff_m, network) if (reac not in eff_rc)]
-            if eff_rc2 == []:  # 新しく追加する反応がない
+            if eff_rc2 == []:  # no new reaction
                 break
-
-            eff_rc.extend(eff_rc2)
-
+            else:
+                eff_rc+=eff_rc2
+        
+        #sort reactions
+        eff_rc_names=sorted([rc[0] for rc in eff_rc])
+        eff_rc=[network.get_reacCons_by_id(_id) for _id in eff_rc_names]
         if (eff_m, eff_rc) not in limitsets_found:
             limitsets_found.append((eff_m, eff_rc))
 
-    # limitset_listを並びかえ
+    # sort limitset_list
     limitset_list=sorted(limitsets_found, key=lambda x: len (x[0])+len (x[1]))
 
     return limitset_list
@@ -67,12 +67,10 @@ def choose_m(perturbed_list, smat2, network):
     return m_list
 
 def choose_rc(m_list, network):
-    # 物質のリストを与えて、outputcompleteになるための反応と保存量のリストを返す
+    # given list of cpds, return list of reacs and cons for output-complete
     rc_list = []
     for reacCons in network.reac_cons_list:
-        #if one of metabolites is included in sub(reaction) or cons., 
-        # then the reac/cons is included in the perturbed_list
-        if set(reacCons[1]) & set(m_list) != set():
+        if not set(reacCons[1]).isdisjoint(set(m_list)):
             rc_list.append(reacCons)
     return rc_list
 # %%

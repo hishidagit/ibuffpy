@@ -268,6 +268,11 @@ class ReactionNetwork:
         else:
             print(maxlen_reaction,'inhibitor/activator is not supported in this function')
 
+    def get_reacCons_by_id(self,_id):
+        for rc in self.reac_cons_list:
+            if rc[0]==_id:
+                return rc
+
 def compute_limitset(network,N=10,large_error=True):
     return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error)
 

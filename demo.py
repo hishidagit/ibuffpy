@@ -4,7 +4,7 @@
 # to draw hierarchy graph, pygraphviz is required.
 from networkx.drawing.nx_agraph import graphviz_layout
 import networkx as nx
-import ReactionNetwork
+from SSA import ReactionNetwork
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib
@@ -14,8 +14,8 @@ importlib.reload(ReactionNetwork)
 # network is defied by a list of reactions
 # read csv of reaction data
 
-networkName = 'demo_MAPK'
 networkName = 'demo_network1'
+networkName = 'demo_MAPK'
 
 # %%
 #path to csv
