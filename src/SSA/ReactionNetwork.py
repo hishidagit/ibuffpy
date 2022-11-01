@@ -74,22 +74,20 @@ class ReactionNetwork:
         # self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
         # self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
 
-        #nullspace is calculated by sympy(algebraic computation) for visuality
-        # ns_sp=sympy.Matrix(self.stoi).nullspace()
-        ns_sp=linalg.null_space(self.stoi)
+        #nullspace
+        ns=linalg.null_space(self.stoi)
         
-        if len(ns_sp)==0:
+        if len(ns)==0:
             self.ns=np.empty((self.R,0))
         else:
-            self.ns=ns_sp
+            self.ns=ns
 
-        # ns2_sp=sympy.Matrix(self.stoi.T).nullspace()
-        ns2_sp=linalg.null_space(self.stoi.T)
+        ns2=linalg.null_space(self.stoi.T)
 
-        if len(ns2_sp)==0:
+        if len(ns2)==0:
             self.ns2=np.empty((0,self.M))
         else:
-            self.ns2=ns2_sp.T
+            self.ns2=ns2.T
             
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
@@ -102,25 +100,21 @@ class ReactionNetwork:
     def info(self):
         print(f'M = {self.M}')
         print(f'R = {self.R}')
-        
         if 'out' in self.cpd_list:
             print('outnode exists')
         else:
             print('no outnode')
-        
         print('cyc = ', len(self.ns.T))
         print('cons = ', len(self.ns2))
-        
         print('rank A = ', np.linalg.matrix_rank(self.compute_amat()))
         print('det A = ', np.linalg.det(self.compute_amat()))
 
     def make_stoi(self):
         stoi = np.zeros((self.M, self.R), dtype=float)
-        for r in range(self.R):
-            for m in range(self.M):
-                cpd = self.cpd_list_noout[m]
-                cpd_sub = self.reaction_list_noid[r][0].count(cpd)  # subに出現する回数
-                cpd_pro = self.reaction_list_noid[r][1].count(cpd)  # proに出現する回数
+        for r,reac in enumerate(self.reaction_list):
+            for m,cpd in enumerate(self.cpd_list_noout):
+                cpd_sub = reac[1].count(cpd)  # count in substrate
+                cpd_pro = reac[2].count(cpd)  # count in product
                 stoi[m, r] = -cpd_sub+cpd_pro
         return stoi
 
@@ -162,7 +156,7 @@ class ReactionNetwork:
         for r in range(R):
             for m in range(M):
                 if cpd_list_noout[m] in reaction_list_noid[r][0]:  # subに含まれる
-                    rmat[r, m] = np.random.rand()
+                    rmat[r, m] = np.random.rand()+0.1
         # create amat
         amat[:R, :M] = rmat
 

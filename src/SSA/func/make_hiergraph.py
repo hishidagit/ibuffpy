@@ -3,21 +3,21 @@ import networkx as nx
 def make_hiermat(limitset_list):
     # return a matrix representing the hierarchy of limitset_list
 
-    limitset_list_all = []
+    limitset_list_name = []
     for lset in limitset_list:
-        lset_all = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
-        limitset_list_all.append(lset_all)
+        lset_name = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
+        limitset_list_name.append(lset_name)
 
-    l = len(limitset_list_all)
+    l = len(limitset_list_name)
 
-    relmat = np.zeros((l, l), dtype=int)  # limitsetの包含関係を表す行列
-    # 列<行のときにrelmatの要素を1にする
-    for i, s in enumerate(limitset_list_all):
-        for j, t in enumerate(limitset_list_all):
+    relmat = np.zeros((l, l), dtype=int)  # matrix representing inclusion relation of limitsets
+    # relmat[i,j]=1 if limitset[j] is in limitset[i].
+    for i, s in enumerate(limitset_list_name):
+        for j, t in enumerate(limitset_list_name):
             if set(t) < set(s):
                 relmat[i, j] = 1
 
-    relmat2 = []  # さらに下流
+    relmat2 = []  # inclusion relation passing more than two edges in hierarchy graph
     for i in range(l):
         row = np.dot(relmat[i], relmat)
         row2 = np.array([1 if p > 0 else 0 for p in row])
@@ -26,7 +26,7 @@ def make_hiermat(limitset_list):
 
     hiermat = relmat-relmat2
     if np.min(hiermat) < 0:
-        print('包含関係が成り立たない')
+        print('inclusive relation is not correct')
         1/0
     return hiermat
 
