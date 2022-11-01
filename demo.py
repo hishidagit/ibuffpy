@@ -26,7 +26,7 @@ network = ReactionNetwork.from_csv(reaction_path)
 #conserved quantities
 print(network.cons_list)
 print(network.cons_list_index)
-# %%
+#%%
 # limitset
 limitset_list = ReactionNetwork.compute_limitset(network)
 # %%

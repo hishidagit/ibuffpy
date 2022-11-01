@@ -5,7 +5,7 @@ def make_hiermat(limitset_list):
 
     limitset_list_name = []
     for lset in limitset_list:
-        lset_name = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
+        lset_name = lset[0]+lset[1]  # reaction_idを追加
         limitset_list_name.append(lset_name)
 
     l = len(limitset_list_name)
@@ -35,7 +35,7 @@ def make_hieredge(limitset_list):
 
     limitset_list_all = []  # reactionとcompoundを一緒のリストにする
     for lset in limitset_list:
-        lset_all = lset[0]+[reac[0] for reac in lset[1]]  # reaction_idを追加
+        lset_all = lset[0]+lset[1]  # reaction_idを追加
         limitset_list_all.append(lset_all)
 
     l = len(limitset_list_all)
