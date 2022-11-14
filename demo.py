@@ -13,7 +13,6 @@ importlib.reload(ReactionNetwork)
 # %%
 # network is defied by a list of reactions
 # read csv of reaction data
-#comment221114
 
 networkName = 'demo_network1'
 networkName = 'demo_MAPK'
