@@ -1,58 +1,85 @@
+# symSSA.py: offered as a symbolic toolbox for the structural sensitivity analysis.
 
 import numpy as np
 import sympy as sp
 from string import ascii_uppercase
 
-sp.init_printing()
+class CRN(object):
 
-'''
-A symbolic toolbox for structural sensitivity analysis.
-Users are suggested to use IPython when working with this toolbox.
-One may consider Jupyter Notebook or Google Colab, in particular.
-Besides, please keep in mind that basically the stoichiometric matrices are assumed to possess integer entries only.
-
-As an example, a beginner may first give it a shot with the following codes:
-
-
-nu = np.array([[  1, -1,  1, -1],
-               [  0,  1, -1,  0],
-               [  0,  1, -1,  0]])
-X, R = vec_XandR(*nu.shape)
-print("Given the ODE of a chemical reaction network")
-display(sp.Eq(
-    sp.symbols(r'\frac{d}{dt}'+sp.latex(X)),
-    sp.symbols((sp.latex(sp.Matrix(nu)) + sp.latex(R)).replace(" ","")),
-evaluate = False))
-
-print("")
-print("The the augmented matrix can given by")
-A   = AugMat(nu, kineticstype = "<")
-display(sp.Eq(sp.symbols(r'\bm{A}'), A, evaluate = False))
-print("In a more genral kinetic model, the matrix may read")
-A   = AugMat(nu, kineticstype = "!=")
-display(sp.Eq(sp.symbols(r'\bm{A}'), A, evaluate = False))
-print("and its determinants is obtained as")
-display(sp.Eq(sp.symbols(r'\det{\bm{A}}'), sp.factor(A.det()), evaluate = False))
-
-print("")
-print("Meanwhile, the Jacobian matrix is")
-J_f = nu @ A[:nu.shape[1], :nu.shape[0]]
-display(sp.Eq(sp.symbols(r'J_f'), J_f, evaluate = False))
-print("with its determinant being")
-display(sp.Eq(sp.symbols(r'\det{J_f}'), sp.factor(J_f.det()), evaluate = False))
-
-'''
-
-def KerImg(mat):
     """
-    To find bases of the image and null spaces for a given matrix by means of Gaussian elimination.
-    Inputs: 
-        mat
-            2D array-like, of which entries are integers.
-    Outputs:
-        a list with 2 elements, in which
-        [0] A matrix of which column vectors form a basis of the kernel. 
-        [1] A matrix of which column vectors form a basis of the image.
+    An object that defines a Chemical Reaction Network with a given stoichiometric matrix.
+
+        stoi        (2D numpy.ndarray)
+                    the stoichiometrix matrix with its entries assuming to be integers.
+        varinames   (1D iterable)
+                    the names/notations of the chemical species.
+        kineticmask (string, or 2D array-like)
+                    the condition in which the partial derivatives can be omitted.
+
+    Example:
+    >>> nu
+    array([[ 1, -1,  1, -1],
+        [ 0,  1, -1,  0],
+        [ 0,  1, -1,  0]])
+    >>> crn = CRN(nu)
+    >>> crn.A
+    Matrix([
+    [         0,          0,          0,  0, -1],
+    [r_{2x_{1}},          0,          0, -1,  0],
+    [         0, r_{3x_{2}}, r_{3x_{3}}, -1,  0],
+    [r_{4x_{1}},          0,          0,  0, -1],
+    [         0,         -1,          1,  0,  0]])
+    """
+
+    def __init__(self, stoi, varinames = None, kineticmask = ">="):
+
+        assert stoi.dtype == np.dtype('int64')
+        self._nu = stoi
+        self._M, self._N = stoi.shape
+
+        if varinames is None:
+            self._X = [sp.symbols('x_{%d}'%(i+1)) for i in range(stoi.shape[0])]
+        else:
+            self._X = [sp.symbols(sp.latex('{}'.format(var))) for var in varinames]
+
+        if type(kineticmask) == np.ndarray:
+            self._kineticmask = kineticmask.astype(bool)
+        else:
+            assert isinstance(kineticmask, str)
+            self._kineticmask = np.array([
+                [eval("{} {} 0".format(stoi[m, n], kineticmask)) for n in range(self._N)]
+            for m in range(self._M)])
+        
+        self._A = _AugMat(stoi, self._X, self._kineticmask)
+
+    @property
+    def varinames(self):
+        return self._X
+    
+    @varinames.setter
+    def varinames(self, varinames):
+        self._X = varinames
+        self._A = _AugMat(self._nu, varinames, self._kineticmask)
+        
+    @property
+    def kineticmask(self):
+        return self._kineticmask
+
+    @kineticmask.setter
+    def kineticmask(self, kineticmask):
+        self._kineticmask = kineticmask
+        self._A = _AugMat(self._nu, self._X, self._kineticmask)
+
+    @property
+    def A(self):
+        return self._A
+    
+    def Jacobian(self):
+        return sp.Matrix(self._nu.dot(self._A[:self._N,:self._M]))
+
+def __KerImg(mat):
+    """
+    Bases of the image and null spaces for a given matrix (composed of integers) by Gaussian elimination.
     """
     M, N = mat.shape
     def _gaussian(ErMat, m, n):
@@ -98,23 +125,24 @@ def KerImg(mat):
     indice = ~np.any(ermat[N:,:], axis = 0)
     return ermat[:N, indice], ermat[N:, ~indice]
 
-def AugMat(nu, kineticstype = "!="):
+def _AugMat(nu, Xname, mask):
     """
     To construct a symbolic augmented matrix A given a stoichiometric matrix.
-    Input:
-        nu
-            2D array-like, the stoichiometric matrix, of which entries are required to be integers.
-        kineticstype
-            string, which specifies the condition in which partial derivatives of r is nonzero.
-            default to be "!=", which means (partial r_j)/(partial x_i) is not cancelled to be zero
-            if nu_{ij} != 0.
+    
+    [Input]
+        nu      (2D array-like)
+                the stoichiometric matrix, of which entries are required to be integers.
+        Xname   (1D iterable)
+                the name of the system variables.
+        mask    (2D array-like)
+                pecifies the condition in which partial derivatives of r can be omitted.
     Output:
         spA
             the symbolic augmented matrix A.
     """
     col_stand = lambda mat: (mat / np.gcd.reduce(mat, axis = 0))
-    C   = col_stand(KerImg(nu)[0])
-    D   = col_stand(KerImg(nu.T)[0])
+    C   = col_stand(__KerImg(nu)[0])
+    D   = col_stand(__KerImg(nu.T)[0])
     dim = nu.shape[0]+C.shape[1]
     spA = sp.Matrix(np.zeros([dim, dim]).astype(int))
     if np.all(C.shape):
@@ -123,25 +151,88 @@ def AugMat(nu, kineticstype = "!="):
         spA[-D.shape[1]:,:D.shape[0]] = sp.Matrix(D.T.astype(int))
     for i in range(nu.shape[0]):
         for j in range(nu.shape[1]):
-            if eval("{} {} 0".format(nu[i,j], kineticstype)):
-                spA[j,i] = sp.symbols('r_%s%s'%(j+1,ascii_uppercase[i]))
+            if not mask[i, j]:
+                spA[j,i] = sp.symbols('r_{%s%s}'%(j+1, Xname[i]))
     return spA
 
-def vec_XandR(M, N):
+
+##########################################################################
+# Displaying by manipulatiung a browser to read HTML with LaTeX embedded #
+##########################################################################
+
+from selenium import webdriver
+import os, time
+
+_mathjax_  = """<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" id="MathJax-script" async
+src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+<body>
+\[
+    {}
+\]
+</body>
+</html>
+""".format
+
+def _set_browser(browsername):
+    "To set the browser for displaying MathML"
+    if browsername == 'Firefox':
+        browser = webdriver.Firefox()
+    elif browsername == 'Chrome':
+        browser = webdriver.Chrome()
+    elif browsername == 'Safari':
+        browser = webdriver.Safari()
+    elif browsername == 'ChromiumEdge':
+        browser = webdriver.ChromiumEdge()
+    return browser
+
+class newsheet(object):
+
     """
-    A quick construction of vectors representing the system state and reaction rates.
-    Input:
-        M
-            A natural number, the number of the chemicals.
-        N
-            A natural number, the number of the reactions.
-    Output:
-        a list with 2 elements, in which
-        [0] The system state X
-        [1] The reaction rate R
+    To open a browswer reading _scratchpaper_.html so as to display results.
+    Always remember to .close() to dispose the data.
     """
-    X = [[sp.symbols(ascii_uppercase[i]) for i in range(M)]]
-    R = [[sp.symbols('r_{}'.format(i)) for i in range(1, N+1)]]
-    return sp.Matrix(X).T, sp.Matrix(R).T
+
+    def __init__(self, mode = "w", browsername = 'Firefox'):
+        self._driver  = _set_browser(browsername)
+        self._latex   = ""
+        self._mode    = mode
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, newmode = "w"):
+        self._mode = newmode
+
+    def close(self):
+        """
+        To close the browser and clean the _scratchpaper_.html.
+        """
+        self._driver.close()
+        os.remove("_scratchpaper_.html")
+
+    def update(self, contents, end = ""):
+        """
+        The input (contents) is assumed to be a string that reads in LaTeX.
+        """
+        if self._mode == 'w':
+            self._latex = ""
+        self._latex = self._latex + contents + end
+        with open("_scratchpaper_.html", "w") as scppml:
+            scppml.write(_mathjax_(self._latex))
+            self._driver.get("file://"+os.path.realpath(scppml.name))
+        time.sleep(1)
+        self._driver.refresh()
+
+    def display(self, spobj, end = ""):
+        """
+        The input (spobj) is assumed to be a sympy object
+        """
+        self.update(sp.latex(spobj), end)
 
 ## == END OF THE SCRIPT == ##
