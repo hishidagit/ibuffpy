@@ -89,39 +89,28 @@ def __KerImg(mat):
         k        = (np.arange(N-n)[np.abs(headrow)==minval])[0]
         if k != 0:
             ErMat[:, [n,n+k]] = ErMat[:, [n+k,n]] # swap
-        for i in np.arange(1, N-n):
-            if headrow[i] != 0:
-                lcm = np.lcm(headrow[0], headrow[i])
-                ErMat[:,n+i] = ((lcm/headrow[i]) * ErMat[:,n+i]).astype(int)
-                ErMat[:,n+i] = ErMat[:,n+i] \
-                        - ((lcm/headrow[0]) * ErMat[:,n]).astype(int)
+        for i in np.arange(0, N):
+            if i == n:
+                pass
+            else:
+                if ErMat[N+m,i] != 0:
+                    lcm = np.lcm(headrow[0], ErMat[N+m,i])
+                    ErMat[:,i] = ((lcm/ErMat[N+m,i]) * ErMat[:,i]).astype(int)
+                    ErMat[:,i] = ErMat[:,i] \
+                            - ((lcm/headrow[0]) * ErMat[:,n]).astype(int)
         return ErMat.astype(int)
     ermat = np.concatenate([np.eye(N), mat.copy()], axis = 0).astype(int)
     # Computation for a basis of the kernel
-    n = 0
+    nonzeroidx = []
     for n in range(N):
         mlist = (np.arange(M)[np.any(ermat[N:,n:], axis = 1)])
         if len(mlist) == 0:
             break
         ermat = _gaussian(ermat, mlist[0], n)
-        n = n+1
-    # Reduction of the basis of the image
-    # this step is actually not necessary for the construction of the basis
-    m = 0
-    Q = np.sum(np.any(ermat[N:,:], axis = 0).astype(int))
-    for q in range(Q):
-        if (m >= M):
-            break
-        elif ermat[N+m, q] == 0:
-            m = m + 1
-            pass
-        for i in range(Q):
-            if (i == q):
-                ermat[:,i] = np.sign(ermat[N+m,i]) * ermat[:,i]
-                pass
-            else:
-                ermat[:,i] = ermat[:,i] \
-                        - (ermat[N+m,i]/ermat[N+m,q]) * ermat[:,q]
+        nonzeroidx.append([M+mlist[0], n])
+    for idx in nonzeroidx:
+        if (ermat[idx[0], idx[1]] < 0):
+            ermat[:, idx[1]] = -ermat[:, idx[1]]
     indice = ~np.any(ermat[N:,:], axis = 0)
     return ermat[:N, indice], ermat[N:, ~indice]
 
