@@ -107,7 +107,7 @@ def __KerImg(mat):
         if len(mlist) == 0:
             break
         ermat = _gaussian(ermat, mlist[0], n)
-        nonzeroidx.append([M+mlist[0], n])
+        nonzeroidx.append([N+mlist[0], n])
     for idx in nonzeroidx:
         if (ermat[idx[0], idx[1]] < 0):
             ermat[:, idx[1]] = -ermat[:, idx[1]]
