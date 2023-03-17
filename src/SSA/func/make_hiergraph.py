@@ -26,8 +26,8 @@ def make_hiermat(limitset_list):
 
     hiermat = relmat-relmat2
     if np.min(hiermat) < 0:
-        print('inclusive relation is not correct')
-        1/0
+        raise Exception('inclusive relation is not correct')
+        
     return hiermat
 
 def make_hieredge(limitset_list):
@@ -41,13 +41,14 @@ def make_hieredge(limitset_list):
     l = len(limitset_list_all)
     hiermat = make_hiermat(limitset_list)
 
-    # ヒエラルキーグラフのノードを作成
+    # make nodes of hierarchy graph
     node_list = []
     for i in range(l):
         elim = set()
+        # if j is in i, eliminate j from i
         for j in range(l):
-            if hiermat[i, j] == 1:  # jがiに含まれる
-                elim |= set(limitset_list_all[j])  # iのノードからjを除く
+            if hiermat[i, j] == 1:
+                elim |= set(limitset_list_all[j])
         node = sorted(list(set(limitset_list_all[i])-elim))
 
         node_list.append(node)
@@ -59,20 +60,20 @@ def make_hieredge(limitset_list):
             if hiermat[i, j] == 1:
                 edge_list.append((s, t))
 
-    return edge_list
+    return node_list, edge_list
 
 def make_hiergraph(limitset_list):
     #return an Agraph of the hierarchy
-    hieredge_list=make_hieredge(limitset_list)
+    hiernode_list, hieredge_list=make_hieredge(limitset_list)
+    # add nodes with short names
+    nodes = [short_name(' '.join(node)) for node in hiernode_list]
     hier = []
-    pick = []
     for edge in hieredge_list:
         s = ' '.join(edge[0])
         t = ' '.join(edge[1])
         hier.append([short_name(s), short_name(t)])
-        pick.extend(list(edge))
-
     hier_graph = nx.DiGraph(hier)
+    hier_graph.add_nodes_from(nodes)
     hier_agraph = nx.nx_agraph.to_agraph(hier_graph)
     hier_agraph.layout(prog='dot')
     return hier_agraph
