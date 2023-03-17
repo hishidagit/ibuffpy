@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_rref(matrix):
+def rowreduce(matrix):
     import numpy as np
     mat=np.array(matrix)
     if len(mat)==0:

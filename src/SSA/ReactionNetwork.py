@@ -1,3 +1,5 @@
+"""Applying Structural Sensitivity Analysis to a reaction network.
+"""
 # %%
 import csv
 import numpy as np
@@ -8,8 +10,11 @@ import pandas as pd
 # import func.make_hiergraph
 # import func.compute_smat
 from . import func
+import cobra
+from sklearn.decomposition import TruncatedSVD
 
 '''
+
 format of reaction_list
 = [('reaction0', [substrate0, substrate1], [product0, product1])
     ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
@@ -70,12 +75,33 @@ class ReactionNetwork:
             print('M = ', self.M)
             print('R = ', self.R)
 
+        # default tolerance is set to 1e-10
+        self.tol = 1e-10
+
+        # stoichiometric matrix
         self.stoi = self.make_stoi()
         # self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
         # self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
 
         #nullspace
-        ns=linalg.null_space(self.stoi)
+        try :
+            ns=linalg.null_space(self.stoi)
+        except np.linalg.LinAlgError:
+        # when network size is large, ns(cycles) are computed using truncated SVD
+        # dimension of nullspace of self.stoi 
+            stoich = self.stoi
+            # compute truncated SVD of stoich.T * stoich
+            svd = TruncatedSVD(n_components=stoich.shape[1])
+            svd.fit(stoich.T @ stoich)
+            # vectors of right singular vectors correspoinding to small singular values
+            nullspace_mask = svd.singular_values_ < self.tol
+            nullspace = svd.components_[nullspace_mask].T
+            # check if random estimation is correct
+            if np.linalg.norm(stoich @ nullspace) > self.tol:
+                raise Exception('Error: nullspace estimation is not correct.')
+            else:
+                ns=nullspace
+
         
         if len(ns)==0:
             self.ns=np.empty((self.R,0))
@@ -95,9 +121,12 @@ class ReactionNetwork:
 
         self.reac_cons_list=self.reaction_list+self.cons_list
 
+        # regularity of the A-matrix
+        self.regularity = np.linalg.matrix_rank(self.compute_amat()) == self.A
 
 
     def info(self):
+        # print information
         print(f'M = {self.M}')
         print(f'R = {self.R}')
         if 'out' in self.cpd_list:
@@ -108,8 +137,10 @@ class ReactionNetwork:
         print('cons = ', len(self.ns2))
         print('rank A = ', np.linalg.matrix_rank(self.compute_amat()))
         print('det A = ', np.linalg.det(self.compute_amat()))
+        print('regularity = ', self.regularity)
 
     def make_stoi(self):
+        #return the stoichiometric matrix
         stoi = np.zeros((self.M, self.R), dtype=float)
         for r,reac in enumerate(self.reaction_list):
             for m,cpd in enumerate(self.cpd_list_noout):
@@ -163,29 +194,29 @@ class ReactionNetwork:
         return amat
 
     def compute_smat(self):
+        # compute the sensitivity matrix
         return func.compute_smat.compute_smat(self)
 
     def compute_smat_mean(self, N=10, large_error=False):
+        # compute the sensitivity matrix of mean
         return func.compute_smat.compute_smat_mean(self, N)
 
     def check_ocomp(self, subg):
-        # subgの反応は，reaction_listのindexで与える
         reaction_list = self.reaction_list
         R = self.R
 
         sub_m_list = subg[0]
         sub_r_list = subg[1]
 
-        # cpdを選んで，そこから伸びる反応
+        # check if output complete 
         for cpd in sub_m_list:
             for r in range(R):
                 if (cpd in reaction_list[r][1]) and (r not in sub_r_list):
-                    # print('output completeでない')
                     return False
         return True
 
     def compute_cyc(self, sub_r_list):
-        # 反応のリスト(index)を与えて，サイクル数を返す
+        # return the number of cycles from the list of reactions
         if len(sub_r_list) == 0:
             num_cyc = 0
         else:
@@ -194,7 +225,7 @@ class ReactionNetwork:
         return num_cyc
 
     def compute_cons(self, sub_m_list):
-        # 物質のリストを与えて，保存量数を返す
+        # return the number of conserved quantities from the list of metabolites
 
         if len(self.ns2)==0:#no cons exists
             num_cons = 0
@@ -202,7 +233,7 @@ class ReactionNetwork:
         else:
             nsub_m_index = [m for m in range (self.M) 
                             if self.cpd_list_noout[m] not in sub_m_list]
-            if not nsub_m_index:  # すべての物質を含む
+            if not nsub_m_index:  # contains all metabolites
                 num_cons = len(self.ns2)
             else:
                 nsubstoi = self.stoi[nsub_m_index, :]
@@ -212,7 +243,7 @@ class ReactionNetwork:
         return num_cons
 
     def index_subg(self, subg):
-        # 部分グラフの指数を返す関数
+        # return the index of subgraph
         stoi = self.stoi
         cpd_list_noout = self.cpd_list_noout
         sub_m_list = subg[0]
@@ -226,10 +257,10 @@ class ReactionNetwork:
 
         ns2 = self.ns2
 
-        # 部分グラフに含まれるサイクル数
+        # number of cycles in the subgraph
         num_cyc =self.compute_cyc(sub_r_index)
 
-        # 保存量数
+        # number of conserved quantities in the subgraph
         num_cons=self.compute_cons (sub_m_list) 
 
         index = len(sub_m_list)+num_cyc-len(sub_r_index)-num_cons
@@ -276,7 +307,7 @@ def make_hieredge(limitset_list):
 def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
 # %%
-def from_csv(path,info=False):
+def from_csv(path,info=True):
     reaction_list=[]
     with open(path, 'r') as f:
         reader = csv.reader(f)
@@ -289,6 +320,77 @@ def from_csv(path,info=False):
                 reaction.append(_cpds)
             reaction_list.append(reaction)
     return ReactionNetwork(reaction_list,info=info)
+
+def from_cobra(model,info=True):
+    # convert to SSA network
+    reaction_list=[]
+    for reac in model.reactions:
+        # objective function
+        # if 'BIOMASS' in reac.id:
+        #     continue
+        lhs=[]
+        rhs=[]
+        for reactant in reac.reactants:
+            coef=abs(int(reac.metabolites[reactant]))
+            lhs+=[reactant.id]*coef
+        for product in reac.products:
+            coef=abs(int(reac.metabolites[product]))
+            rhs+=[product.id]*coef
+        if len(lhs)==0:
+            lhs=['out']
+        if len(rhs)==0:
+            rhs=['out']
+        if not reac.reversibility:
+            reaction_list.append([reac.id,lhs,rhs])
+        elif lhs==['out'] or rhs==['out']: # reversible outflow
+            reaction_list.append([reac.id,lhs,rhs])
+            reaction_list.append([reac.id+'_rev',rhs,lhs])
+        
+        # reversible reaction has products as its regulator
+        else:
+            reaction_list.append([reac.id,lhs,rhs,rhs])
+
+    network=ReactionNetwork(reaction_list,info=info)
+    return network
+
+def to_cobra(network,name=''):
+    # convert from SSA network to cobra model
+    model_name=name
+    model=cobra.Model(model_name)
+
+    for cpdname in network.cpd_list_noout:
+        metab=cobra.Metabolite(cpdname)
+        model.add_metabolites(metab)
+    for reac in network.reaction_list_reg:
+        #reaction name of cobra cannot contain white-space(" ").
+        reacname=reac[0].replace(' ','_')
+        cobra_reac=cobra.Reaction(reacname)
+        metab_dict=dict()
+
+        for cpd in reac[1]:#lhs
+            if cpd!='out':
+                metab_dict[model.metabolites.get_by_id(cpd)]=-reac[1].count(cpd)
+            else:
+                0
+        for cpd in reac[2]:#rhs
+            if cpd!='out':
+                metab_dict[model.metabolites.get_by_id(cpd)]=reac[2].count(cpd)
+            else:
+                0
+        cobra_reac.add_metabolites(metab_dict)
+        
+        #if reaction is reversible, reac[2] is in reac[1]
+        if len(reac)>3 and reac[3]==reac[2]:
+            if reac[2]!=reac[3]:
+                print('reaction_list format is not for cobra model')
+                raise(Exception)
+            else:
+                print(reac[0])
+                cobra_reac.lower_bound=-1000
+        
+        model.add_reaction(cobra_reac)
+
+    return model
 #%%
 class LargeErrorSmat(Exception):
     pass

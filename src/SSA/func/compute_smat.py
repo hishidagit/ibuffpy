@@ -10,12 +10,14 @@ def compute_smat(network):
 
     A = R+len(ns2)
     if R+len(ns2) != M+len(ns.T):
-        print('A行列が正方行列でない')
-        1/0
+        print('A matrix is not square.')
+        raise Exception
 
     amat = network.compute_amat()
-    # smat計算
-    smat = np.linalg.inv(amat)
+    # computing S matrix
+    # use np.linalg.solve instead of np.linalg.inv
+    # smat = -np.linalg.inv(amat)
+    smat = -np.linalg.solve(amat,np.eye(network.A))
 
     return smat
 

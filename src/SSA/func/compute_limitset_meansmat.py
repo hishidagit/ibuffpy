@@ -1,6 +1,5 @@
 #%%
 import numpy as np
-from tqdm import tqdm
 from . import compute_smat
 def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算回数
 
@@ -20,7 +19,7 @@ def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算�
     mat_eff=smat_bn.T[:,:M]
 
     limitset_list=[]
-    for perturbed in tqdm(np.arange(A)):
+    for perturbed in np.arange(A):
         eff_rc=np.array([perturbed])
         eff_m=cpdidx_all[np.any(mat_eff[eff_rc],axis=0)]
         eff_m=np.sort(np.unique(eff_m))
