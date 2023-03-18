@@ -12,6 +12,7 @@ import pandas as pd
 from . import func
 import cobra
 from sklearn.decomposition import TruncatedSVD
+from scipy.sparse import csr_matrix
 
 '''
 
@@ -101,14 +102,29 @@ class ReactionNetwork:
                 raise Exception('Error: nullspace estimation is not correct.')
             else:
                 ns=nullspace
-
         
         if len(ns)==0:
             self.ns=np.empty((self.R,0))
         else:
             self.ns=ns
 
-        ns2=linalg.null_space(self.stoi.T)
+        try:
+            ns2=linalg.null_space(self.stoi.T)
+        except np.linalg.LinAlgError:
+            # dimension of nullspace of self.stoi 
+            mrx = self.stoi.T
+            # compute truncated SVD of stoich.T * stoich
+            svd = TruncatedSVD(n_components=mrx.shape[1])
+            svd.fit(mrx.T @ mrx)
+            # vectors of right singular vectors correspoinding to small singular values
+            nullspace_mask = svd.singular_values_ < self.tol
+            nullspace = svd.components_[nullspace_mask].T
+            # check if random estimation is correct
+            if np.linalg.norm(mrx @ nullspace) > self.tol:
+                raise Exception('Error: nullspace estimation is not correct.')
+            else:
+                ns2=nullspace
+
 
         if len(ns2)==0:
             self.ns2=np.empty((0,self.M))
@@ -122,7 +138,12 @@ class ReactionNetwork:
         self.reac_cons_list=self.reaction_list+self.cons_list
 
         # regularity of the A-matrix
-        self.regularity = np.linalg.matrix_rank(self.compute_amat()) == self.A
+        if self.A < 100:
+            self.regularity = np.linalg.matrix_rank(self.compute_amat()) == self.A
+        else:
+            amat_sp = csr_matrix(self.compute_amat())
+            self.regularity = np.linalg.matrix_rank(amat_sp) == self.A
+            
 
 
     def info(self):
