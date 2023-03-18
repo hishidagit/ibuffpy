@@ -75,12 +75,27 @@ def make_hiergraph(limitset_list):
     hier_graph = nx.DiGraph(hier)
     hier_graph.add_nodes_from(nodes)
     hier_agraph = nx.nx_agraph.to_agraph(hier_graph)
-    hier_agraph.layout(prog='dot')
+
+    # when node degree is large, node hight is fixed
+    for node in hier_agraph.nodes():
+        if hier_agraph.degree(node) > 30:
+            hier_agraph.get_node(node).attr['height'] = 5
+            hier_agraph.get_node(node).attr['width'] = 5
+
+    hier_agraph.layout(prog='dot', args="-Nshape=box")
     return hier_agraph
 
 def short_name(name):
     l = len(name)
     N = 40  # N文字に一回改行
-    for i in range(l//N):
-        name = name[:(i+1)*N]+'\n'+name[(i+1)*N:]
-    return name
+    if l<N:
+        return name
+    else: 
+        short_name = name [:N]
+        for i in range(l//N):
+            short_name += '\n'+name[(i+1)*N:(i+2)*N]
+            # too long name is truncated
+            if i == 5:
+                short_name += '...'
+                break
+        return short_name
