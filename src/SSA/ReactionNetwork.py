@@ -137,12 +137,12 @@ class ReactionNetwork:
 
         self.reac_cons_list=self.reaction_list+self.cons_list
 
-        # regularity of the A-matrix
-        if self.A < 100:
-            self.regularity = np.linalg.matrix_rank(self.compute_amat()) == self.A
-        else:
-            amat_sp = csr_matrix(self.compute_amat())
-            self.regularity = np.linalg.matrix_rank(amat_sp) == self.A
+        # # regularity of the A-matrix
+        # if self.A < 100:
+        #     self.regularity = np.linalg.matrix_rank(self.compute_amat()) == self.A
+        # else:
+        #     amat_sp = csr_matrix(self.compute_amat())
+        #     self.regularity = np.linalg.matrix_rank(amat_sp) == self.A
             
 
 
@@ -158,7 +158,7 @@ class ReactionNetwork:
         print('cons = ', len(self.ns2))
         print('rank A = ', np.linalg.matrix_rank(self.compute_amat()))
         print('det A = ', np.linalg.det(self.compute_amat()))
-        print('regularity = ', self.regularity)
+        # print('regularity = ', self.regularity)
 
     def make_stoi(self):
         #return the stoichiometric matrix
@@ -220,7 +220,7 @@ class ReactionNetwork:
 
     def compute_smat_mean(self, N=10, large_error=False):
         # compute the sensitivity matrix of mean
-        return func.compute_smat.compute_smat_mean(self, N)
+        return func.compute_smat.compute_smat_mean(self, N, large_error=large_error)
 
     def check_ocomp(self, subg):
         reaction_list = self.reaction_list
