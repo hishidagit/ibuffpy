@@ -9,3 +9,6 @@ If the coefficient of a metabolite is greater than 1, it will appear more than o
 You can find buffering structures by limitset_list = ReactionNetwork.compute_limitset(network) and visualise them by graph = ReactionNetwork.make_hiergraph(limitset_list) and graph.draw(PATH_SAVE).
 When the A-matrix of the network (network.compute_amat()) is singular, this method cannot be applied to it.
 
+To install SSA, run the next command:
+  pip install (path to the repository setup.py is located)
+"-e" option enables you to edit the package by yourself.
