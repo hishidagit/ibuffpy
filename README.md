@@ -10,5 +10,7 @@ You can find buffering structures by limitset_list = ReactionNetwork.compute_lim
 When the A-matrix of the network (network.compute_amat()) is singular, this method cannot be applied to it.
 
 To install SSA, run the next command:
+
   pip install (path to the repository setup.py is located)
+
 "-e" option enables you to edit the package by yourself.
