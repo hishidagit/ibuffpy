@@ -13,7 +13,7 @@ from . import func
 import cobra
 from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import csr_matrix
-
+import sympy
 '''
 
 format of reaction_list
@@ -22,10 +22,10 @@ format of reaction_list
 '''
 
 class ReactionNetwork:
-    def __init__(self, reaction_list_input, info=True):
+    def __init__(self, reaction_list_input, info=True, ker_basis="numpy", cq_basis="numpy"):
         if info:
             print('constructed.')
-        
+
         #drop duplicates
         nodup=[]
         for reac in reaction_list_input:
@@ -33,7 +33,7 @@ class ReactionNetwork:
                 nodup.append(reac)
         reaction_list_input=nodup
 
-        #regulation 
+        #regulation
         _reaction_list=[]
         for reac in reaction_list_input:
             if len(reac)==3:
@@ -85,52 +85,81 @@ class ReactionNetwork:
         # self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
 
         #nullspace
-        try :
-            ns=linalg.null_space(self.stoi)
-        except np.linalg.LinAlgError:
-        # when network size is large, ns(cycles) are computed using truncated SVD
-        # dimension of nullspace of self.stoi 
-            stoich = self.stoi
-            # compute truncated SVD of stoich.T * stoich
-            svd = TruncatedSVD(n_components=stoich.shape[1])
-            svd.fit(stoich.T @ stoich)
-            # vectors of right singular vectors correspoinding to small singular values
-            nullspace_mask = svd.singular_values_ < self.tol
-            nullspace = svd.components_[nullspace_mask].T
-            # check if random estimation is correct
-            if np.linalg.norm(stoich @ nullspace) > self.tol:
-                raise Exception('Error: nullspace estimation is not correct.')
+        if not isinstance(ker_basis, (np.ndarray, list)):
+            if ker_basis == "numpy":
+                try :
+                    ns=linalg.null_space(self.stoi)
+
+                except np.linalg.LinAlgError:
+                    # when network size is large, ns(cycles) are computed using truncated SVD
+                    # dimension of nullspace of self.stoi
+                    stoich = self.stoi
+                    # compute truncated SVD of stoich.T * stoich
+                    svd = TruncatedSVD(n_components=stoich.shape[1])
+                    svd.fit(stoich.T @ stoich)
+                    # vectors of right singular vectors correspoinding to small singular values
+                    nullspace_mask = svd.singular_values_ < self.tol
+                    nullspace = svd.components_[nullspace_mask].T
+                    # check if random estimation is correct
+                    if np.linalg.norm(stoich @ nullspace) > self.tol:
+                        raise Exception('Error: nullspace estimation is not correct.')
+                    else:
+                        ns=nullspace
+
+            elif ker_basis == "sympy":
+                ns=sympy.Matrix(self.stoi).nullspace()
+                if len (ns):
+                    ns=np.concatenate([np.array(vec, dtype=float) for vec in ns], axis=1)
+
             else:
-                ns=nullspace
-        
-        if len(ns)==0:
-            self.ns=np.empty((self.R,0))
-        else:
-            self.ns=ns
+                raise ValueError ('ker_basis must be one of "numpy"", "sympy" or a numpy array/list')
 
-        try:
-            ns2=linalg.null_space(self.stoi.T)
-        except np.linalg.LinAlgError:
-            # dimension of nullspace of self.stoi 
-            mrx = self.stoi.T
-            # compute truncated SVD of stoich.T * stoich
-            svd = TruncatedSVD(n_components=mrx.shape[1])
-            svd.fit(mrx.T @ mrx)
-            # vectors of right singular vectors correspoinding to small singular values
-            nullspace_mask = svd.singular_values_ < self.tol
-            nullspace = svd.components_[nullspace_mask].T
-            # check if random estimation is correct
-            if np.linalg.norm(mrx @ nullspace) > self.tol:
-                raise Exception('Error: nullspace estimation is not correct.')
+            if len(ns)==0:
+                self.ns=np.empty((self.R,0))
             else:
-                ns2=nullspace
+                self.ns=ns
+        else:#basis of nullspace can be given by yourself
+            self.ns = ker_basis
 
 
-        if len(ns2)==0:
-            self.ns2=np.empty((0,self.M))
-        else:
-            self.ns2=ns2.T
-            
+        #CQ
+        if not isinstance(cq_basis, (np.ndarray, list) ):
+            if cq_basis == "numpy":
+                try:
+                    ns2=linalg.null_space(self.stoi.T)
+
+                except np.linalg.LinAlgError:
+                    # dimension of nullspace of self.stoi
+                    mrx = self.stoi.T
+                    # compute truncated SVD of stoich.T * stoich
+                    svd = TruncatedSVD(n_components=mrx.shape[1])
+                    svd.fit(mrx.T @ mrx)
+                    # vectors of right singular vectors correspoinding to small singular values
+                    nullspace_mask = svd.singular_values_ < self.tol
+                    nullspace = svd.components_[nullspace_mask].T
+                    # check if random estimation is correct
+                    if np.linalg.norm(mrx @ nullspace) > self.tol:
+                        raise Exception('Error: nullspace estimation is not correct.')
+                    else:
+                        ns2=nullspace
+
+            elif cq_basis == "sympy":
+                ns2=sympy.Matrix(self.stoi.T).nullspace()
+                if len (ns2):
+                    ns2=np.concatenate([np.array(vec, dtype=float) for vec in ns2], axis=1)
+
+            else:
+                raise ValueError ('cq_basis must be one of "numpy"", "sympy" or a numpy array/list')
+
+
+
+            if len(ns2)==0:
+                self.ns2=np.empty((0,self.M))
+            else:
+                self.ns2=ns2.T
+        else:#basis of conserved quantity can be given by yourself
+            self.ns2 = cq_basis
+
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
         self.cons_list, self.cons_list_index=self.make_conslist()
@@ -143,7 +172,7 @@ class ReactionNetwork:
         # else:
         #     amat_sp = csr_matrix(self.compute_amat())
         #     self.regularity = np.linalg.matrix_rank(amat_sp) == self.A
-            
+
 
 
     def info(self):
@@ -175,7 +204,7 @@ class ReactionNetwork:
         cons_list=[]
         cons_list_index=[]
         ns2=self.ns2
-        
+
         #metabolites are identified by its name
         for c in range(len(ns2)):
             m_list=[self.cpd_list_noout[m] for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
@@ -187,7 +216,7 @@ class ReactionNetwork:
             m_list=[m for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
             cons=['cons_'+str(c), m_list]
             cons_list_index.append(cons)
-        
+
         return cons_list, cons_list_index
 
     def compute_amat(self):
@@ -229,7 +258,7 @@ class ReactionNetwork:
         sub_m_list = subg[0]
         sub_r_list = subg[1]
 
-        # check if output complete 
+        # check if output complete
         for cpd in sub_m_list:
             for r in range(R):
                 if (cpd in reaction_list[r][1]) and (r not in sub_r_list):
@@ -252,7 +281,7 @@ class ReactionNetwork:
             num_cons = 0
 
         else:
-            nsub_m_index = [m for m in range (self.M) 
+            nsub_m_index = [m for m in range (self.M)
                             if self.cpd_list_noout[m] not in sub_m_list]
             if not nsub_m_index:  # contains all metabolites
                 num_cons = len(self.ns2)
@@ -282,7 +311,7 @@ class ReactionNetwork:
         num_cyc =self.compute_cyc(sub_r_index)
 
         # number of conserved quantities in the subgraph
-        num_cons=self.compute_cons (sub_m_list) 
+        num_cons=self.compute_cons (sub_m_list)
 
         index = len(sub_m_list)+num_cyc-len(sub_r_index)-num_cons
 
@@ -302,7 +331,7 @@ class ReactionNetwork:
             if not set(reac[1]).isdisjoint(set(subm_list)):
                 subr_list.append(reac[0])
         return [subm_list, subr_list]
-    
+
     def to_df(self):
         maxlen_reaction=max([len(reac) for reac in self.reaction_list])
         if maxlen_reaction==3:
@@ -328,7 +357,7 @@ def make_hieredge(limitset_list):
 def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
 # %%
-def from_csv(path,info=True):
+def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     reaction_list=[]
     with open(path, 'r') as f:
         reader = csv.reader(f)
@@ -340,7 +369,7 @@ def from_csv(path,info=True):
                 [_cpds.append(cpd) for cpd in cpds.split(' ') if cpd!='']
                 reaction.append(_cpds)
             reaction_list.append(reaction)
-    return ReactionNetwork(reaction_list,info=info)
+    return ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
 def from_cobra(model,info=True):
     # convert to SSA network
@@ -366,7 +395,7 @@ def from_cobra(model,info=True):
         elif lhs==['out'] or rhs==['out']: # reversible outflow
             reaction_list.append([reac.id,lhs,rhs])
             reaction_list.append([reac.id+'_rev',rhs,lhs])
-        
+
         # reversible reaction has products as its regulator
         else:
             reaction_list.append([reac.id,lhs,rhs,rhs])
@@ -399,7 +428,7 @@ def to_cobra(network,name=''):
             else:
                 0
         cobra_reac.add_metabolites(metab_dict)
-        
+
         #if reaction is reversible, reac[2] is in reac[1]
         if len(reac)>3 and reac[3]==reac[2]:
             if reac[2]!=reac[3]:
@@ -408,7 +437,7 @@ def to_cobra(network,name=''):
             else:
                 print(reac[0])
                 cobra_reac.lower_bound=-1000
-        
+
         model.add_reaction(cobra_reac)
 
     return model
