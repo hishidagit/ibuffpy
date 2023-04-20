@@ -34,6 +34,11 @@ limitset_list = ReactionNetwork.compute_limitset(network)
 #pygraphviz is required
 hier_agraph = ReactionNetwork.make_hiergraph(limitset_list)
 hier_agraph.draw(f'./hier_{networkName}.png')
+#%%
+# ignoring conserved quantities
+limitset_list_noCQ = ReactionNetwork.compute_limitset(network, detectCQ=False)
+hier_agraph_noCQ = ReactionNetwork.make_hiergraph(limitset_list_noCQ)
+hier_agraph_noCQ.draw(f'./hier_{networkName}_noCQ.png')
 # %%
 # A matrix
 fig = plt.figure(figsize=(10, 10), facecolor='w')
