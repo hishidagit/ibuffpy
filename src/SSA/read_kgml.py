@@ -31,15 +31,14 @@ def get_reactionData(filepath):
 def make_network_from_kgml(filepath,info=True):
     reaction_list=get_reactionData(filepath)
     if len(reaction_list)==0:
-        print('empty reaction_list')
-        raise Exception
+        raise Exception('empty reaction_list')
     network=ReactionNetwork.ReactionNetwork(reaction_list,info=info)
     df_reaction=network.to_df()
 
     if df_reaction.index.duplicated().sum()>0:
         # same name, not identical reactions
-        print('reaction name is not identical,', df_reaction.index.duplicated().sum())
-        raise Exception
+        # print('reaction name is not identical,', df_reaction.index.duplicated().sum())
+        raise Exception('reaction name is not identical')
     else:
         return network
 
