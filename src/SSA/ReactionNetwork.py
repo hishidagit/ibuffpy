@@ -176,7 +176,7 @@ class ReactionNetwork:
 
 
     def info(self):
-        # print information
+        """print information of the network"""
         print(f'M = {self.M}')
         print(f'R = {self.R}')
         if 'out' in self.cpd_list:
@@ -190,7 +190,7 @@ class ReactionNetwork:
         # print('regularity = ', self.regularity)
 
     def make_stoi(self):
-        #return the stoichiometric matrix
+        """make stoichiometric matrix"""
         stoi = np.zeros((self.M, self.R), dtype=float)
         for r,reac in enumerate(self.reaction_list):
             for m,cpd in enumerate(self.cpd_list_noout):
@@ -200,26 +200,27 @@ class ReactionNetwork:
         return stoi
 
     def make_conslist(self):
-        #return the list of conserved quantities
+        """make list of conserved quantities"""
         cons_list=[]
         cons_list_index=[]
         ns2=self.ns2
 
         #metabolites are identified by its name
         for c in range(len(ns2)):
-            m_list=[self.cpd_list_noout[m] for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
+            m_list=[self.cpd_list_noout[m] for m in range(self.M) if np.abs(ns2[c,m])>self.tol]
             cons=['cons_'+str(c), m_list]
             cons_list.append(cons)
 
         #index of metabolites
         for c in range(len(ns2)):
-            m_list=[m for m in range(self.M) if np.abs(ns2[c,m])>1.0e-10]
+            m_list=[m for m in range(self.M) if np.abs(ns2[c,m])>self.tol]
             cons=['cons_'+str(c), m_list]
             cons_list_index.append(cons)
 
         return cons_list, cons_list_index
 
     def compute_amat(self):
+        """compute the A-matrix"""
         R = self.R
         M = self.M
         A = self.A
@@ -244,14 +245,17 @@ class ReactionNetwork:
         return amat
 
     def compute_smat(self):
-        # compute the sensitivity matrix
+        """compute the sensitivity matrix"""
         return func.compute_smat.compute_smat(self)
 
     def compute_smat_mean(self, N=10, large_error=False):
-        # compute the sensitivity matrix of mean
+        """compute the sensitivity matrix of mean"""
         return func.compute_smat.compute_smat_mean(self, N, large_error=large_error)
 
     def check_ocomp(self, subg):
+        """check if output complete
+        Args:
+            subg (list): list of metabolites and reactions"""
         reaction_list = self.reaction_list
         R = self.R
 
@@ -265,24 +269,28 @@ class ReactionNetwork:
                     return False
         return True
 
-    def compute_cyc(self, sub_r_list):
-        # return the number of cycles from the list of reactions
-        if len(sub_r_list) == 0:
+    def compute_cyc(self, sub_r_index):
+        """compute the number of cycles from the list of reaction index.
+        Args:
+            sub_r_index (list): list of reaction index"""
+        if len(sub_r_index) == 0:
             num_cyc = 0
         else:
-            sub_rstoi = self.stoi[:, sub_r_list]
+            sub_rstoi = self.stoi[:, sub_r_index]
             num_cyc = len(linalg.null_space(sub_rstoi).T)
         return num_cyc
 
-    def compute_cons(self, sub_m_list):
-        # return the number of conserved quantities from the list of metabolites
+    def compute_cons(self, sub_m_index):
+        """compute the number of conserved quantities from the list of metabolite index.
+        Args:
+            sub_m_index (list): list of metabolite index"""
 
         if len(self.ns2)==0:#no cons exists
             num_cons = 0
 
         else:
             nsub_m_index = [m for m in range (self.M)
-                            if self.cpd_list_noout[m] not in sub_m_list]
+                            if self.cpd_list_noout[m] not in sub_m_index]
             if not nsub_m_index:  # contains all metabolites
                 num_cons = len(self.ns2)
             else:
@@ -293,7 +301,9 @@ class ReactionNetwork:
         return num_cons
 
     def index_subg(self, subg):
-        # return the index of subgraph
+        """compute the index of subgraph
+        Args:
+            subg (list): list of metabolites and reactions"""
         stoi = self.stoi
         cpd_list_noout = self.cpd_list_noout
         sub_m_list = subg[0]
@@ -304,8 +314,6 @@ class ReactionNetwork:
                 if reac[0] == rname:
                     sub_r_index.append(n)
                     break
-
-        ns2 = self.ns2
 
         # number of cycles in the subgraph
         num_cyc =self.compute_cyc(sub_r_index)

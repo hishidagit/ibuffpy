@@ -10,8 +10,7 @@ def compute_smat(network):
 
     A = R+len(ns2)
     if R+len(ns2) != M+len(ns.T):
-        print('A matrix is not square.')
-        raise Exception
+        raise Exception('A matrix is not square.')
 
     amat = network.compute_amat()
     # computing S matrix
