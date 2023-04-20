@@ -356,8 +356,8 @@ class ReactionNetwork:
             if rc[0]==_id:
                 return rc
 
-def compute_limitset(network,N=10,large_error=True):
-    return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error)
+def compute_limitset(network,N=10,large_error=True,detectCQ=True):
+    return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error,detectCQ=detectCQ)
 
 def make_hieredge(limitset_list):
     return func.make_hiergraph.make_hieredge(limitset_list)
