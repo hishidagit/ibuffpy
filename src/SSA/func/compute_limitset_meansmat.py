@@ -2,6 +2,20 @@
 import numpy as np
 from . import compute_smat
 def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算回数
+    """compute limitset from smat_mean
+    
+    Args: 
+        network (ReactionNetwork): ReactionNetwork class
+        N (int): number of smat_mean calculation
+        large_error (bool, optional): if True, use large error. Defaults to True.
+    
+    Returns:
+        list: list of limitset
+    
+    Examples:
+        >>> limitset_list = ReactionNetwork.compute_limitset(network)
+
+    """
 
     M = network.M
     R = network.R
@@ -11,6 +25,7 @@ def compute_limitset_meansmat(network, N, large_error=True):  # N;smatの計算�
     #conver smat to binary form
     smat_bn=np.where(np.abs(smat_mean)<1.0e-10,False,True)
 
+    #
     cpdidx_all=np.arange(M)
     rcindex_all=np.arange(A)
     reacCons_names=[rc[0] for rc in network.reac_cons_list]
