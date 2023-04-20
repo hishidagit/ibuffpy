@@ -231,8 +231,8 @@ class ReactionNetwork:
 
         # check if output complete 
         for cpd in sub_m_list:
-            for r in range(R):
-                if (cpd in reaction_list[r][1]) and (r not in sub_r_list):
+            for rxn in reaction_list:
+                if (cpd in rxn[1]) and (rxn[0] not in sub_r_list):
                     return False
         return True
 
