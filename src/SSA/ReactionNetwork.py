@@ -357,6 +357,13 @@ class ReactionNetwork:
                 return rc
 
 def compute_limitset(network,N=10,large_error=True,detectCQ=True):
+    """compute the limit set of the network
+    Args:
+        network (Network): Network object
+        N (int): number of calculation of S-matrix
+        large_error (bool): if True, use large error method
+        detectCQ (bool): if True, detect conserved quantities
+        """
     return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error,detectCQ=detectCQ)
 
 def make_hieredge(limitset_list):
