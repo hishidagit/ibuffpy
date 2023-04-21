@@ -4,6 +4,7 @@ src/SSA/ReactionNetwork.py
 src/SSA/__init__.py
 src/SSA/massaction.py
 src/SSA/read_kgml.py
+src/SSA/symSSA.py
 src/SSA.egg-info/PKG-INFO
 src/SSA.egg-info/SOURCES.txt
 src/SSA.egg-info/dependency_links.txt

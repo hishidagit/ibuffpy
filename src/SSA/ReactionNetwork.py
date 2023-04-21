@@ -37,6 +37,8 @@ class ReactionNetwork:
 
         #regulation
         _reaction_list=[]
+
+        negative_regulation = {}#dict for Negative regulation
         for reac in reaction_list_input:
             if len(reac)==3:
                 _reaction_list.append(reac)
@@ -44,9 +46,13 @@ class ReactionNetwork:
                 _reaction_list.append([reac[0], reac[1]+reac[3], reac[2]+reac[3]])
             elif len(reac)==5:
                 _reaction_list.append([reac[0], reac[1]+reac[3]+reac[4], reac[2]+reac[3]+reac[4]])
+                negative_regulation[reac[0]] = reac[4]#record negative regulators of each reaction
             else:
                 print('reaction_list format is not correct.')
                 1/0
+
+
+        self.negative_regulation = negative_regulation
 
         self.reaction_list=_reaction_list
         self.reaction_list_noid = [[reac[1], reac[2]]
@@ -229,6 +235,8 @@ class ReactionNetwork:
         ns = self.ns
         cpd_list_noout = self.cpd_list_noout
         reaction_list_noid = self.reaction_list_noid
+        reaction_list_reg =self.reaction_list_reg
+        negative_regulation=self.negative_regulation
 
         amat = np.zeros((A, A), dtype=float)
         amat[R:A, :M] = -ns2
@@ -236,10 +244,16 @@ class ReactionNetwork:
 
         # create rmat
         rmat = np.zeros((R, M))
-        for r in range(R):
-            for m in range(M):
-                if cpd_list_noout[m] in reaction_list_noid[r][0]:  # subに含まれる
-                    rmat[r, m] = np.random.rand()+0.1
+        for i,r in enumerate(reaction_list_reg):
+            for j,m in enumerate(cpd_list_noout):
+                if m in reaction_list_noid[i][0]:# subに含まれる
+                    rmat[i, j] = np.random.rand()+0.1
+                    if neg_reg:=negative_regulation.get(r[0]):
+                        if m in neg_reg:#When m is a negaive regulator of the reaction
+                            rmat[i, j] = -np.random.rand()-0.1
+
+
+
         # create amat
         amat[:R, :M] = rmat
 
@@ -372,6 +386,55 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
                 reaction.append(_cpds)
             reaction_list.append(reaction)
     return ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
+
+#############################Convert panda.dataframe to the input of ReactionNetwork########################################
+#########Parameters
+#########df:pandas.dataframe (Input dataframe (Each row corresponds to one reaction))#########
+#0th column = reaction id, 1th column = substrates of a reaction, 2nd column = products of a reaction, 3th column = regulator of a reaction)
+#In principle, all regulators are considered to be positive regulators of a reaction.
+#If you want to distinguish negative regulator of a reaction from positive regulators, 3 th columns = activator, 4th column = inhibitor
+#########sep:{" ", ","} #########
+
+#########ker_basis: {"numpy", "sympy", 2D numpy array}#########
+# How to calculate the basis of nullspace
+#########cq_basis:{"numpy", "sympy", 2D numpy array}#########
+#How to calculate the basis of conserved quantities
+def from_pandas (df, sep = " ",info=True,ker_basis="numpy",cq_basis="numpy"):
+    df=df.copy ()
+
+    if len (df.columns)==3:
+        df.columns = ["Reaction_index", "Substrate", "Product"]
+        df["Activator"] = np.nan
+        df["Inhibitor"] = np.nan
+    elif len (df.columns)==4:
+        df.columns = ["Reaction_index", "Substrate", "Product", "Activator"]
+        df["Inhibitor"] = np.nan
+    elif len (df.columns)==5:
+        df.columns = ["Reaction_index", "Substrate", "Product", "Activator", "Inhibitor"]
+    else:
+        raise ValueError ("The number of columns in the dataframe must be between 3 and 5")
+
+
+    if not df["Reaction_index"].dtypes =='str':
+        df["Reaction_index"]= df["Reaction_index"].astype(str)
+
+    df.loc[df["Substrate"].isnull(), "Substrate"]="out"
+    df.loc[df["Product"].isnull(), "Product"]="out"
+
+    df["Substrate"] = df["Substrate"].apply (lambda x:x.split (sep))
+    df["Product"] = df["Product"].apply (lambda x:x.split (sep))
+    df["Activator"] = df["Activator"].apply (lambda x:x.split (sep) if not pd.isnull(x) else "nan")
+    df["Inhibitor"] = df["Inhibitor"].apply(lambda x:x.split (sep) if not pd.isnull(x) else "nan")
+
+    list_df=  df.values.tolist()
+
+    input_crn=[]
+    for reac in list_df:
+        if reac[4]!= 'nan':
+            input_crn.append ([k if k !="nan" else [] for k in reac])
+        else:
+            input_crn.append ([x for x in reac if x != 'nan'] )
+    return ReactionNetwork(input_crn,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
 def from_cobra(model,info=True):
     # convert to SSA network
