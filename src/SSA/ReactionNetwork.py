@@ -16,7 +16,7 @@ from scipy.sparse import csr_matrix
 import sympy
 '''
 format of reaction_list
-= [('reaction0', [substrate0, substrate1], [product0, product1])
+= [('reaction0', [substrate0, substrate1], [product0, product1]),
     ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
 '''
 np.ndarray
@@ -547,7 +547,8 @@ def to_cobra(network,name=''):
         
     Returns
     -------
-    model : cobra.Model"""
+    model : cobra.Model
+    """
     # convert from SSA network to cobra model
     model_name=name
     model=cobra.Model(model_name)
