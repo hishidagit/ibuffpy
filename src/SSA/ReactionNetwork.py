@@ -1,4 +1,4 @@
-"""Applying Structural Sensitivity Analysis to a reaction network.
+"""ReactionNetwork class for SSA.
 """
 # %%
 import csv
