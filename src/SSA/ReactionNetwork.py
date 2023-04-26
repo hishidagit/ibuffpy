@@ -15,14 +15,38 @@ from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import csr_matrix
 import sympy
 '''
-
 format of reaction_list
 = [('reaction0', [substrate0, substrate1], [product0, product1])
     ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
 '''
-
+np.ndarray
 class ReactionNetwork:
+    """ReactionNetwork class for SSA."""
     def __init__(self, reaction_list_input, info=True, ker_basis="numpy", cq_basis="numpy"):
+        """Initialize ReactionNetwork class.
+        
+        Parameters
+        ----------
+        reaction_list_input : list
+            List of reactions. Each reaction contains at least 3 elements, that is name, list of substrate names, and list of product names.
+            If the reaction is regulated, 4th element is a list of activator names, and 5th element is a list of inhibitor names.
+        info : bool, optional
+            If True, print information about the network when constructed, by default True
+        ker_basis : str or numpy.ndarray, optional
+            If "numpy", compute basis of nullspace of stoichiometric matrix using numpy, by default "numpy".
+            "sympy" is also available, but it is slower than "numpy".
+            It can also be given by yourself as a numpy array.
+        cq_basis : str or numpy.ndarray, optional
+            If "numpy", compute basis of CQ using numpy, by default "numpy".
+            "sympy" is also available, but it is slower than "numpy".
+            It can also be given by yourself as a numpy array.
+        
+        Examples
+        --------
+        >>> reaction_list = [('reaction0', [substrate0, substrate1], [product0, product1])
+                            ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
+        >>> network = ReactionNetwork(reaction_list, info=True, ker_basis="numpy", cq_basis="numpy")
+        """
         if info:
             print('constructed.')
 
@@ -220,7 +244,10 @@ class ReactionNetwork:
         return cons_list, cons_list_index
 
     def compute_amat(self):
-        """compute the A-matrix"""
+        """compute the A-matrix. 
+        Random real value is assigned to each nonzero element in the left upper part of the A-matrxis.
+        Cycles and conserved quantities are computed using numpy or sympy, or explicitly given.
+        """
         R = self.R
         M = self.M
         A = self.A
@@ -271,8 +298,17 @@ class ReactionNetwork:
 
     def compute_cyc(self, sub_r_index):
         """compute the number of cycles from the list of reaction index.
-        Args:
-            sub_r_index (list): list of reaction index"""
+        
+        Parameters
+        ----------
+        sub_r_index : list
+            index list of reactions
+
+        Returns
+        -------
+        num_cyc : int
+            number of cycles composed of the reactions in sub_r_index
+        """
         if len(sub_r_index) == 0:
             num_cyc = 0
         else:
@@ -282,8 +318,16 @@ class ReactionNetwork:
 
     def compute_cons(self, sub_m_index):
         """compute the number of conserved quantities from the list of metabolite index.
-        Args:
-            sub_m_index (list): list of metabolite index"""
+        Parameters
+        ----------
+        sub_m_index : list
+            index list of metabolites
+        
+        Returns
+        -------
+        num_cons : int
+            number of conserved quantities composed of the metabolites in sub_m_index
+        """
 
         if len(self.ns2)==0:#no cons exists
             num_cons = 0
@@ -302,8 +346,17 @@ class ReactionNetwork:
 
     def index_subg(self, subg):
         """compute the index of subgraph
-        Args:
-            subg (list): list of metabolites and reactions"""
+        
+        Parameters
+        ----------
+        subg : list of list
+            list of metabolites and reactions. reactions are identified by their names.
+        
+        Returns
+        -------
+        index : int
+            index of subgraph
+        """
         stoi = self.stoi
         cpd_list_noout = self.cpd_list_noout
         sub_m_list = subg[0]
@@ -326,13 +379,35 @@ class ReactionNetwork:
         return index
 
     def short_name(self, name):
+        """Insert one line break for every N characters.
+
+        Parameters
+        ----------
+        name : str
+            name of a box in hierarchy graph of buffering structures.
+        
+        Returns
+        -------
+        name : str"""
         l = len(name)
-        N = 40  # N文字に一回改行
+        N = 40  # One line break for every N characters.
         for i in range(l//N):
             name = name[:(i+1)*N]+'\n'+name[(i+1)*N:]
         return name
 
     def make_ocompSubg(self, subm_list):
+        """make output complete subgraph from the list of metabolites.
+        
+        Parameters
+        ----------
+        subm_list : list
+            list of metabolite names
+        
+        Returns
+        -------
+        subg : list of list
+            list of metabolites and reactions. reactions are identified by their names.
+        """
         reaction_list = self.reaction_list
         subr_list = []
         for reac in reaction_list:
@@ -341,6 +416,12 @@ class ReactionNetwork:
         return [subm_list, subr_list]
 
     def to_df(self):
+        """Return pandas dataframe of reactions in the network.
+        
+        Returns
+        -------
+        df_reaction : pandas dataframe
+        """
         maxlen_reaction=max([len(reac) for reac in self.reaction_list])
         if maxlen_reaction==3:
             df_reaction = pd.DataFrame(self.reaction_list,
@@ -358,12 +439,22 @@ class ReactionNetwork:
 
 def compute_limitset(network,N=10,large_error=True,detectCQ=True):
     """compute the limit set of the network
-    Args:
-        network (Network): Network object
-        N (int): number of calculation of S-matrix
-        large_error (bool): if True, use large error method
-        detectCQ (bool): if True, detect conserved quantities
-        """
+    Parameters:
+    ----------
+    network : ReactionNetwork
+        reaction network
+    N : int, optional
+        number of iterations, by default 10
+    large_error : bool, optional
+        if True, return error if computational error is large while S-matrix computation, by default True
+    detectCQ : bool, optional
+        if True, include conserved quantities in buffeing structures, by default True
+    
+    Returns
+    -------
+    limitset_list : list of list
+        list of buffering structures
+    """
     return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error,detectCQ=detectCQ)
 
 def make_hieredge(limitset_list):
@@ -373,6 +464,19 @@ def make_hiergraph(limitset_list):
     return func.make_hiergraph.make_hiergraph(limitset_list)
 # %%
 def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
+    """ load reaction network from csv file
+    
+    Parameters
+    ----------
+    path : str
+        path to csv file
+    info : bool, optional
+        if True, print information of the network, by default True
+    ker_basis : str, optional
+        "numpy" or "sympy", by default "numpy"
+    cq_basis : str, optional
+        "numpy" or "sympy", by default "numpy"
+    """
     reaction_list=[]
     with open(path, 'r') as f:
         reader = csv.reader(f)
@@ -387,6 +491,19 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     return ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
 def from_cobra(model,info=True):
+    """convert cobra model to ReactionNetwork object
+    
+    Parameters
+    ----------
+    model : cobra model
+        cobra model
+    info : bool, optional
+        if True, print information of the network, by default True
+    
+    Returns
+    -------
+    ReactionNetwork
+    """
     # convert to SSA network
     reaction_list=[]
     for reac in model.reactions:
@@ -419,6 +536,18 @@ def from_cobra(model,info=True):
     return network
 
 def to_cobra(network,name=''):
+    """convert to cobra model
+    
+    Parameters
+    ----------
+    network : ReactionNetwork
+        ReactionNetwork object
+    name : str, optional
+        name of the model, by default ''
+        
+    Returns
+    -------
+    model : cobra.Model"""
     # convert from SSA network to cobra model
     model_name=name
     model=cobra.Model(model_name)

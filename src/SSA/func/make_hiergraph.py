@@ -1,6 +1,19 @@
 import numpy as np
 import networkx as nx
 def make_hiermat(limitset_list):
+    """return a matrix representing the hierarchy of limitset_list
+    Each column and row represents a limitset.
+    
+    Parameters
+    ----------
+    limitset_list : list
+        list of limitsets(buffering structures)
+    
+    Returns
+    -------
+    hiermat : numpy.ndarray
+        matrix representing the hierarchy of limitset_list
+    """
     # return a matrix representing the hierarchy of limitset_list
 
     limitset_list_name = []
@@ -31,6 +44,20 @@ def make_hiermat(limitset_list):
     return hiermat
 
 def make_hieredge(limitset_list):
+    """return a hierarchy graph as a list of edges
+    
+    Parameters
+    ----------
+    limitset_list : list
+        list of limitsets(buffering structures)
+    
+    Returns
+    -------
+    node_list : list
+        list of nodes of hierarchy graph
+    edge_list : list
+        list of edges of hierarchy graph
+    """
     # return a hierarchy graph as a list of edges
 
     limitset_list_all = []  # reactionとcompoundを一緒のリストにする
@@ -63,6 +90,18 @@ def make_hieredge(limitset_list):
     return node_list, edge_list
 
 def make_hiergraph(limitset_list):
+    """return a hierarchy graph as a Agraph
+    
+    Parameters
+    ----------
+    limitset_list : list
+        list of limitsets(buffering structures)
+        
+    Returns
+    -------
+    hier_agraph : Agraph
+        hierarchy graph
+    """
     #return an Agraph of the hierarchy
     hiernode_list, hieredge_list=make_hieredge(limitset_list)
     # add nodes with short names
