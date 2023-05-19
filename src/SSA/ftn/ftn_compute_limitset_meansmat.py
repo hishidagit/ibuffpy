@@ -1,6 +1,6 @@
 #%%
 import numpy as np
-from . import compute_smat
+from . import ftn_compute_smat
 def compute_limitset_meansmat(network, N, large_error=True, detectCQ=True):  # N;smatの計算回数
     """compute limitsets from smat_mean.
     
@@ -21,7 +21,7 @@ def compute_limitset_meansmat(network, N, large_error=True, detectCQ=True):  # N
         return compute_limitset_meansmat_noCQ(network, N, large_error)
     
     # compute mean of S-matrix
-    smat_mean = compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
+    smat_mean = ftn_compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
 
     #conver smat to binary form by threshold
     smat_bn=np.where(np.abs(smat_mean)<network.tol,False,True)
@@ -76,7 +76,7 @@ def compute_limitset_meansmat(network, N, large_error=True, detectCQ=True):  # N
 def compute_limitset_meansmat_noCQ(network, N, large_error=True):
     """compute limitsets from smat_mean without detecting conserved quantities."""
     
-    smat_mean = compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
+    smat_mean = ftn_compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
 
     #conver smat to binary form by threshold
     smat_bn=np.where(np.abs(smat_mean)<network.tol,False,True)

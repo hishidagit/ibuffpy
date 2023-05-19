@@ -5,11 +5,11 @@ import csv
 import numpy as np
 from scipy import linalg
 import pandas as pd
-# import func.compute_limitset_meansmat
-# import func.compute_rref
-# import func.make_hiergraph
-# import func.compute_smat
-from . import func
+from .ftn import ftn_compute_limitset_meansmat
+from .ftn import ftn_compute_rref
+from .ftn import ftn_make_hiergraph
+from .ftn import ftn_compute_smat
+# from . import func
 import cobra
 from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import csr_matrix
@@ -273,11 +273,11 @@ class ReactionNetwork:
 
     def compute_smat(self):
         """compute the sensitivity matrix"""
-        return func.compute_smat.compute_smat(self)
+        return ftn_compute_smat.compute_smat(self)
 
     def compute_smat_mean(self, N=10, large_error=False):
         """compute the sensitivity matrix of mean"""
-        return func.compute_smat.compute_smat_mean(self, N, large_error=large_error)
+        return ftn_compute_smat.compute_smat_mean(self, N, large_error=large_error)
 
     def check_ocomp(self, subg):
         """check if output complete
@@ -455,13 +455,13 @@ def compute_limitset(network,N=10,large_error=True,detectCQ=True):
     limitset_list : list of list
         list of buffering structures
     """
-    return func.compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error,detectCQ=detectCQ)
+    return ftn_compute_limitset_meansmat.compute_limitset_meansmat(network,N,large_error=large_error,detectCQ=detectCQ)
 
 def make_hieredge(limitset_list):
-    return func.make_hiergraph.make_hieredge(limitset_list)
+    return ftn_make_hiergraph.make_hieredge(limitset_list)
 
 def make_hiergraph(limitset_list):
-    return func.make_hiergraph.make_hiergraph(limitset_list)
+    return ftn_make_hiergraph.make_hiergraph(limitset_list)
 # %%
 def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     """ load reaction network from csv file
@@ -587,5 +587,3 @@ def to_cobra(network,name=''):
 
     return model
 #%%
-class LargeErrorSmat(Exception):
-    pass

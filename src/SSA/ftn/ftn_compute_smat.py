@@ -1,5 +1,4 @@
 import numpy as np
-from SSA import ReactionNetwork
 
 def compute_smat(network):
     R = network.R
@@ -40,9 +39,12 @@ def compute_smat_mean(network, N, large_error=True):
         0
     else:
         if large_error:
-            raise ReactionNetwork.LargeErrorSmat('smat_mean have large error.')
+            raise LargeErrorSmat('smat_mean have large error.')
         else:
             print('large error warning')
 
     return smat_mean
 
+
+class LargeErrorSmat(Exception):
+    pass

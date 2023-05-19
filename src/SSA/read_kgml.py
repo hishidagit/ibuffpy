@@ -1,7 +1,7 @@
 #functions to read kgml files
 import xml.etree.ElementTree as ET
 import pandas as pd
-from SSA import ReactionNetwork
+from . import ReactionNetwork
 import requests
 import time
 
