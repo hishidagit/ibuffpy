@@ -1,7 +1,6 @@
 import numpy as np
 
-def rowreduce(matrix):
-    import numpy as np
+def rowreduce(matrix,tol=1.0e-10):
     mat=np.array(matrix)
     if len(mat)==0:
         return mat #empty matrix
@@ -12,6 +11,9 @@ def rowreduce(matrix):
     
     #i:row j:col
     i,j,k=0,0,0
+
+    # error retry
+    retry = 0
     
     #kはreduceが終わった行の数。k=rankになったら終了
     while True:
@@ -20,11 +22,11 @@ def rowreduce(matrix):
         #k行以下に注目する
         i,j=k,k
         #k行以下で、非零成分が最初に現れる列をj
-        while all([abs(elem)<1.0e-10 for elem in mat[k:,j]]):
+        while all([abs(elem)<tol for elem in mat[k:,j]]):
             j+=1
             
         #k行以下で、非ゼロ成分を最も左に持つ行の一つをi行とする
-        while abs(mat[i,j])<1.0e-10:
+        while abs(mat[i,j])<tol:
                 i=i+1
 
         #ピボットを1に
@@ -39,11 +41,18 @@ def rowreduce(matrix):
             mat[r]=mat[r]-mat[i]*mat[r,j]
 
         #i列とk列を入れ替える
-        exc1=mat[i].copy()
-        exc2=mat[k].copy()
-        mat[k]=exc1
-        mat[i]=exc2
+        mat[[k,i]]=mat[[i,k]]
         
         k+=1
         if k==rank:
             return mat  
+        
+        # check numerical error
+        check_error = mat.flatten()
+        check_error = check_error[np.where(np.abs(check_error)>tol/10)]
+        check_error = check_error[np.where(np.abs(check_error)<tol*10)]
+        if len(check_error)>0:
+            raise ValueError('numerical error')
+        
+        # zero overwrite
+        mat = np.where(np.abs(np.abs(mat))<tol,0,mat)

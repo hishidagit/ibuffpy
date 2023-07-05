@@ -1,10 +1,11 @@
-#functions to read kgml files
+"""functions to read kgml files"""
+#%%
 import xml.etree.ElementTree as ET
 import pandas as pd
 from . import ReactionNetwork
 import requests
 import time
-
+#%%
 #return a dataframe of reactions
 def get_reactionData(filepath):
     with open(filepath, 'r') as f:
@@ -12,14 +13,17 @@ def get_reactionData(filepath):
 
     root = ET.fromstring(kgml)
 
+    dict_id = IDdict(filepath)
+
     reactions = [child for child in root if child.tag == 'reaction']
 
     reaction_list = []
     for reac in reactions:
         reacName=reac.attrib['name']
-        sub_name_list = [sub.attrib['name'] for sub in reac.findall('substrate')]
-
-        pro_name_list = [pro.attrib['name'] for pro in reac.findall('product')]
+        sub_id_list = [sub.attrib['id'] for sub in reac.findall('substrate')]
+        pro_id_list = [pro.attrib['id'] for pro in reac.findall('product')]
+        sub_name_list = [dict_id[sub_id] for sub_id in sub_id_list]
+        pro_name_list = [dict_id[pro_id] for pro_id in pro_id_list]
         reaction_list.append([reacName,sub_name_list, pro_name_list])
 
         direction = reac.attrib['type']
@@ -91,10 +95,18 @@ def complete_reaction(reaction):
     kegg_rhs_cpds=kegg_rhs.replace(' ','').split('+')
     for cpd in kegg_lhs_cpds:
         if cpd[0]!='C':
-            1/0
+            # coefficient of the reaction
+            n = int(cpd[:cpd.find('C')])
+            cpdname = cpd[cpd.find('C'):]
+            kegg_lhs_cpds.remove(cpd)
+            kegg_lhs_cpds.extend([cpdname]*n)
     for cpd in kegg_rhs_cpds:
         if cpd[0]!='C':
-            1/0
+            # coefficient of the reaction
+            n = int(cpd[:cpd.find('C')])
+            cpdname = cpd[cpd.find('C'):]
+            kegg_rhs_cpds.remove(cpd)
+            kegg_rhs_cpds.extend([cpdname]*n)
     
     # direction...  True: => False: <+
     if (not set(lhs).isdisjoint(set(kegg_lhs_cpds))) and (not set(rhs).isdisjoint(set(kegg_rhs_cpds))):
@@ -110,3 +122,8 @@ def complete_reaction(reaction):
         reaction_complete=[reaction[0],kegg_rhs_cpds,kegg_lhs_cpds]
 
     return reaction_complete
+#%%
+if __name__ == '__main__':
+    org = 'hsa'
+    pathway_id=f'{org}01200'
+    path_pathway = f'{DATADIR}/network/pathways_kgml/{org}/{pathway_id}.xml'

@@ -21,10 +21,7 @@ format of reaction_list
 '''
 np.ndarray
 class ReactionNetwork:
-    """ReactionNetwork class for SSA."""
-    def __init__(self, reaction_list_input, info=True, ker_basis="numpy", cq_basis="numpy"):
-        """Initialize ReactionNetwork class.
-        
+    """ReactionNetwork class for SSA.
         Parameters
         ----------
         reaction_list_input : list
@@ -46,6 +43,10 @@ class ReactionNetwork:
         >>> reaction_list = [('reaction0', [substrate0, substrate1], [product0, product1])
                             ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
         >>> network = ReactionNetwork(reaction_list, info=True, ker_basis="numpy", cq_basis="numpy")
+    """
+
+    def __init__(self, reaction_list_input, info=True, ker_basis="numpy", cq_basis="numpy"):
+        """Initialize ReactionNetwork class.
         """
         if info:
             print('constructed.')
@@ -203,6 +204,7 @@ class ReactionNetwork:
         """print information of the network"""
         print(f'M = {self.M}')
         print(f'R = {self.R}')
+        print(f'A = {self.A}')
         if 'out' in self.cpd_list:
             print('outnode exists')
         else:
@@ -210,7 +212,7 @@ class ReactionNetwork:
         print('cyc = ', len(self.ns.T))
         print('cons = ', len(self.ns2))
         print('rank A = ', np.linalg.matrix_rank(self.compute_amat()))
-        print('det A = ', np.linalg.det(self.compute_amat()))
+        # print('det A = ', np.linalg.det(self.compute_amat()))
         # print('regularity = ', self.regularity)
 
     def make_stoi(self):
@@ -436,6 +438,21 @@ class ReactionNetwork:
         for rc in self.reac_cons_list:
             if rc[0]==_id:
                 return rc
+    
+    def to_csv(self,path):
+        """save network to csv file
+        
+        parameters
+        ----------
+        network : ReactionNetwork
+            reaction network
+        path : str
+            path to csv file
+        """
+        with open(path, 'w',newline='') as f:
+            writer = csv.writer(f)
+            for rxn in self.reaction_list:
+                writer.writerow([rxn[0],' '.join(rxn[1]),' '.join(rxn[2])])
 
 def compute_limitset(network,N=10,large_error=True,detectCQ=True):
     """compute the limit set of the network
@@ -481,6 +498,8 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     with open(path, 'r') as f:
         reader = csv.reader(f)
         for line in reader:
+            if len(line)==0:
+                continue
             reaction=[]
             reaction.append(line[0]) #name
             for cpds in line[1:]:#substrate, product, activator, inhibitor
@@ -489,6 +508,9 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
                 reaction.append(_cpds)
             reaction_list.append(reaction)
     return ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
+
+
+    
 
 def from_cobra(model,info=True):
     """convert cobra model to ReactionNetwork object
@@ -586,4 +608,25 @@ def to_cobra(network,name=''):
         model.add_reaction(cobra_reac)
 
     return model
+
+def add_reactions(network,newrxns,info=True):
+    """add reactions to network
+    
+    Parameters
+    ----------
+    network : ReactionNetwork
+        reaction network
+    newrxns : list of reactions
+        reactions to be added
+    info : bool, optional
+        if True, print information of the network, by default True
+    """
+    if newrxns==[]:
+        return network
+    for rxn in newrxns:
+        if rxn[0] in network.reactionNames:
+            print('reaction name already exists')
+            raise(Exception)
+    reaction_list = network.reaction_list+newrxns
+    return ReactionNetwork(reaction_list,info=info)
 #%%
