@@ -2,14 +2,11 @@
 # Demo use of the ReactionNetwork class.
 # python 3.8.10
 # to draw hierarchy graph, pygraphviz is required.
-from networkx.drawing.nx_agraph import graphviz_layout
-import networkx as nx
-from SSA import ReactionNetwork
+from SSApy import ReactionNetwork
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib
 import pandas as pd
-importlib.reload(ReactionNetwork)
 # %%
 # network is defied by a list of reactions
 # read csv of reaction data
@@ -27,17 +24,17 @@ network = ReactionNetwork.from_csv(reaction_path)
 print(network.cons_list)
 print(network.cons_list_index)
 #%%
-# limitset
-limitset_list = ReactionNetwork.compute_limitset(network)
+# bs
+bs_list = ReactionNetwork.compute_bs(network)
 # %%
 # draw a hierarchy
 #pygraphviz is required
-hier_agraph = ReactionNetwork.make_hiergraph(limitset_list)
+hier_agraph = ReactionNetwork.make_hiergraph(bs_list)
 hier_agraph.draw(f'./hier_{networkName}.png')
 #%%
 # ignoring conserved quantities
-limitset_list_noCQ = ReactionNetwork.compute_limitset(network, detectCQ=False)
-hier_agraph_noCQ = ReactionNetwork.make_hiergraph(limitset_list_noCQ)
+bs_list_noCQ = ReactionNetwork.compute_bs(network, detectCQ=False)
+hier_agraph_noCQ = ReactionNetwork.make_hiergraph(bs_list_noCQ)
 hier_agraph_noCQ.draw(f'./hier_{networkName}_noCQ.png')
 # %%
 # A matrix
