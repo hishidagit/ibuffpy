@@ -6,14 +6,15 @@ import numpy as np
 from scipy import linalg
 import pandas as pd
 from .ftn import ftn_compute_bs_meansmat
-from .ftn import ftn_compute_rref
+#from .ftn import ftn_compute_rref
+from .ftn import ftn_compute_nullspace
 from .ftn import ftn_make_hiergraph
 from .ftn import ftn_compute_smat
 # from . import func
 import cobra
 from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import csr_matrix
-import sympy
+#import sympy
 '''
 format of reaction_list
 = [('reaction0', [substrate0, substrate1], [product0, product1]),
@@ -29,15 +30,19 @@ class ReactionNetwork:
             If the reaction is regulated, 4th element is a list of activator names, and 5th element is a list of inhibitor names.
         info : bool, optional
             If True, print information about the network when constructed, by default True
-        ker_basis : str or numpy.ndarray, optional
-            If "numpy", compute basis of nullspace of stoichiometric matrix using numpy, by default "numpy".
-            "sympy" is also available, but it is slower than "numpy".
-            It can also be given by yourself as a numpy array.
-        cq_basis : str or numpy.ndarray, optional
-            If "numpy", compute basis of CQ using numpy, by default "numpy".
-            "sympy" is also available, but it is slower than "numpy".
-            It can also be given by yourself as a numpy array.
-        
+        ker_basis : str or numpy.ndarray, default = "svd"
+            If "svd", compute the basis of nullspace of stoichiometric matrix using singular value decomposition (with "scipy.linalg.null_space").
+            If "rref", compute the basis by putting a matrix into RREF.
+            It can also be given by yourself as a numpy array or list. The Size should be M*K (M: The number of reactions, K: The number of cycles).
+            "svd" is faster than "rref" and the calculation of the sensitivity is not affected by the choice of ker basis. Therefore we recommend to use "svd".
+
+
+        cq_basis : str or numpy.ndarray, default = "rref"
+            If "rref", compute the basis by putting a matrix into RREF.
+            If "svd", compute the basis of nullspace of the stoichiometric matrix using the SVD (singular value decomposition) The scipy function "scipy.linalg.null_space" is used.
+            It can also be given by yourself as a numpy array or list. The size should be N*L  ( N: The number of chemicals, L: The number of conserved quantities).
+            When calculationg the basis of conserved quantities, "rref" is recommended. Using the SVD leads to an inappropriate choice of the basis (See Yamauchi et al, Apeendix A).
+
         Examples
         --------
         >>> reaction_list = [('reaction0', [substrate0, substrate1], [product0, product1])
@@ -45,7 +50,7 @@ class ReactionNetwork:
         >>> network = ReactionNetwork(reaction_list, info=True, ker_basis="numpy", cq_basis="numpy")
     """
 
-    def __init__(self, reaction_list_input, info=False, ker_basis="numpy", cq_basis="numpy"):
+    def __init__(self, reaction_list_input, info=False, ker_basis="svd", cq_basis="rref"):
         """Initialize ReactionNetwork class.
         """
         if info:
@@ -60,16 +65,22 @@ class ReactionNetwork:
 
         #regulation
         _reaction_list=[]
+        positive_regulation = {}#dict for Negative regulation
+        negative_regulation = {}#dict for Negative regulation
         for reac in reaction_list_input:
             if len(reac)==3:
                 _reaction_list.append(reac)
             elif len(reac)==4:
                 _reaction_list.append([reac[0], reac[1]+reac[3], reac[2]+reac[3]])
+                positive_regulation[reac[0]] = reac[3]#record positive regulators
             elif len(reac)==5:
                 _reaction_list.append([reac[0], reac[1]+reac[3]+reac[4], reac[2]+reac[3]+reac[4]])
+                negative_regulation[reac[0]] = reac[4]#record negative regulators
             else:
                 print('reaction_list format is not correct.')
                 1/0
+        self.positive_regulation = positive_regulation
+        self.negative_regulation = negative_regulation
 
         self.reaction_list=_reaction_list
         self.reaction_list_noid = [[reac[1], reac[2]]
@@ -109,81 +120,42 @@ class ReactionNetwork:
         # self.ns = func.compute_rref.compute_rref(linalg.null_space(self.stoi).T).T
         # self.ns2 = func.compute_rref.compute_rref(linalg.null_space(self.stoi.T).T)
 
-        #nullspace
+        #calculate nullspace (cycle)
         if not isinstance(ker_basis, (np.ndarray, list)):
-            if ker_basis == "numpy":
-                try :
-                    ns=linalg.null_space(self.stoi)
+            if ker_basis == "svd":
+                ns = ftn_compute_nullspace.cal_nullspace_svd (self.stoi, error=1.0e-10)
 
-                except np.linalg.LinAlgError:
-                    # when network size is large, ns(cycles) are computed using truncated SVD
-                    # dimension of nullspace of self.stoi
-                    stoich = self.stoi
-                    # compute truncated SVD of stoich.T * stoich
-                    svd = TruncatedSVD(n_components=stoich.shape[1])
-                    svd.fit(stoich.T @ stoich)
-                    # vectors of right singular vectors correspoinding to small singular values
-                    nullspace_mask = svd.singular_values_ < self.tol
-                    nullspace = svd.components_[nullspace_mask].T
-                    # check if random estimation is correct
-                    if np.linalg.norm(stoich @ nullspace) > self.tol:
-                        raise Exception('Error: nullspace estimation is not correct.')
-                    else:
-                        ns=nullspace
-
-            elif ker_basis == "sympy":
-                ns=sympy.Matrix(self.stoi).nullspace()
-                if len (ns):
-                    ns=np.concatenate([np.array(vec, dtype=float) for vec in ns], axis=1)
+            elif ker_basis == "rref":
+                ns = ftn_compute_nullspace.cal_nullspace_rref (self.stoi, error=1.0e-10)
 
             else:
-                raise ValueError ('ker_basis must be one of "numpy"", "sympy" or a numpy array/list')
+                raise ValueError ('ker_basis must be one of "svd", "rref", or a numpy array/list')
 
             if len(ns)==0:
                 self.ns=np.empty((self.R,0))
             else:
                 self.ns=ns
         else:#basis of nullspace can be given by yourself
-            self.ns = ker_basis
+            self.ns = ker_basis##ker_basis must be a column vector
 
-
-        #CQ
+        #calculate coker vector (conserved quantity)
         if not isinstance(cq_basis, (np.ndarray, list) ):
-            if cq_basis == "numpy":
-                try:
-                    ns2=linalg.null_space(self.stoi.T)
+            if cq_basis == "rref":
+                ns2 = ftn_compute_nullspace.cal_nullspace_rref (self.stoi.T, error=1.0e-10)
 
-                except np.linalg.LinAlgError:
-                    # dimension of nullspace of self.stoi
-                    mrx = self.stoi.T
-                    # compute truncated SVD of stoich.T * stoich
-                    svd = TruncatedSVD(n_components=mrx.shape[1])
-                    svd.fit(mrx.T @ mrx)
-                    # vectors of right singular vectors correspoinding to small singular values
-                    nullspace_mask = svd.singular_values_ < self.tol
-                    nullspace = svd.components_[nullspace_mask].T
-                    # check if random estimation is correct
-                    if np.linalg.norm(mrx @ nullspace) > self.tol:
-                        raise Exception('Error: nullspace estimation is not correct.')
-                    else:
-                        ns2=nullspace
-
-            elif cq_basis == "sympy":
-                ns2=sympy.Matrix(self.stoi.T).nullspace()
-                if len (ns2):
-                    ns2=np.concatenate([np.array(vec, dtype=float) for vec in ns2], axis=1)
+            elif cq_basis == "svd":
+                ns2 = ftn_compute_nullspace.cal_nullspace_svd (self.stoi.T, error=1.0e-10)
 
             else:
-                raise ValueError ('cq_basis must be one of "numpy"", "sympy" or a numpy array/list')
-
-
+                raise ValueError ('cq_basis must be one of "rref", "svd", or a numpy array/list')
 
             if len(ns2)==0:
                 self.ns2=np.empty((0,self.M))
             else:
-                self.ns2=ns2.T
+                self.ns2=ns2.T#Convert ns2 into a row vector
         else:#basis of conserved quantity can be given by yourself
-            self.ns2 = cq_basis
+            self.ns2 = np.array (cq_basis).T#cq_basis sholud be a column vector→ns2 is a row vector
+
 
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
@@ -246,28 +218,41 @@ class ReactionNetwork:
         return cons_list, cons_list_index
 
     def compute_amat(self):
-        """compute the A-matrix. 
+        """compute the A-matrix.
         Random real value is assigned to each nonzero element in the left upper part of the A-matrxis.
-        Cycles and conserved quantities are computed using numpy or sympy, or explicitly given.
+        Cycles and conserved quantities are computed using SVD or RREF, or explicitly given.
         """
         R = self.R
         M = self.M
         A = self.A
         ns2 = self.ns2
         ns = self.ns
+        #random_min, random_max = self.random_min, self.random_max
+        random_min, random_max = 0.1, 10
         cpd_list_noout = self.cpd_list_noout
         reaction_list_noid = self.reaction_list_noid
+        reaction_list_reg =self.reaction_list_reg
+        negative_regulation=self.negative_regulation
 
         amat = np.zeros((A, A), dtype=float)
         amat[R:A, :M] = -ns2
         amat[:R, M:A] = -ns
 
         # create rmat
+        #rmat = np.zeros((R, M))
+        #for r in range(R):
+            #for m in range(M):
+                #if cpd_list_noout[m] in reaction_list_noid[r][0]:  # subに含まれる
+                    #rmat[r, m] = np.random.rand()+0.1
+        # create rmat (New by Yamauchi) (distinguish positive regulation and negative regulation)
         rmat = np.zeros((R, M))
-        for r in range(R):
-            for m in range(M):
-                if cpd_list_noout[m] in reaction_list_noid[r][0]:  # subに含まれる
-                    rmat[r, m] = np.random.rand()+0.1
+        for i,r in enumerate(reaction_list_reg):
+            for j,m in enumerate(cpd_list_noout):
+                if m in reaction_list_noid[i][0]:# subに含まれる
+                    rmat[i, j] = np.random.rand()*random_max+random_min
+                    if neg_reg:=negative_regulation.get(r[0]):
+                        if m in neg_reg:#When m is a negaive regulator of the reaction
+                            rmat[i, j] = -np.random.rand()*random_max-random_min
         # create amat
         amat[:R, :M] = rmat
 
@@ -281,11 +266,16 @@ class ReactionNetwork:
         """compute the sensitivity matrix of mean"""
         return ftn_compute_smat.compute_smat_mean(self, N, large_error=large_error)
 
+    def compute_smat_sign(self, N=100):#add by Yamauchi
+        """compute the signs of the sensitivity"""
+        return ftn_compute_smat.compute_smat_sign(self, N)
+
+
     def check_ocomp(self, subg):
-        """check if output complete
-        Args:
-            subg (list): list of metabolites and reactions"""
-        reaction_list = self.reaction_list
+        """
+        subg (list of list):[[cpd name list], [reaction name list]]
+        """
+        reaction_list = self.reaction_list_reg#8/22山内修正 (self.reaction_list)
         R = self.R
 
         sub_m_list = subg[0]
@@ -293,14 +283,14 @@ class ReactionNetwork:
 
         # check if output complete
         for cpd in sub_m_list:
-            for rxn in reaction_list:
-                if (cpd in rxn[1]) and (rxn[0] not in sub_r_list):
+            for r in range(R):
+                if (cpd in reaction_list[r][1]) and (reaction_list [r][0] not in sub_r_list):#8/22山内修正
                     return False
         return True
 
     def compute_cyc(self, sub_r_index):
         """compute the number of cycles from the list of reaction index.
-        
+
         Parameters
         ----------
         sub_r_index : list
@@ -324,7 +314,7 @@ class ReactionNetwork:
         ----------
         sub_m_index : list
             index list of metabolites
-        
+
         Returns
         -------
         num_cons : int
@@ -348,12 +338,12 @@ class ReactionNetwork:
 
     def index_subg(self, subg):
         """compute the index of subgraph
-        
+
         Parameters
         ----------
         subg : list of list
             list of metabolites and reactions. reactions are identified by their names.
-        
+
         Returns
         -------
         index : int
@@ -387,7 +377,7 @@ class ReactionNetwork:
         ----------
         name : str
             name of a box in hierarchy graph of buffering structures.
-        
+
         Returns
         -------
         name : str"""
@@ -399,12 +389,12 @@ class ReactionNetwork:
 
     def make_ocompSubg(self, subm_list):
         """make output complete subgraph from the list of metabolites.
-        
+
         Parameters
         ----------
         subm_list : list
             list of metabolite names
-        
+
         Returns
         -------
         subg : list of list
@@ -419,7 +409,7 @@ class ReactionNetwork:
 
     def to_df(self):
         """Return pandas dataframe of reactions in the network.
-        
+
         Returns
         -------
         df_reaction : pandas dataframe
@@ -438,10 +428,10 @@ class ReactionNetwork:
         for rc in self.reac_cons_list:
             if rc[0]==_id:
                 return rc
-    
+
     def to_csv(self,path):
         """save network to csv file
-        
+
         parameters
         ----------
         network : ReactionNetwork
@@ -466,7 +456,7 @@ def compute_bs(network,N=10,large_error=True,detectCQ=True):
         if True, return error if computational error is large while S-matrix computation, by default True
     detectCQ : bool, optional
         if True, include conserved quantities in buffeing structures, by default True
-    
+
     Returns
     -------
     bs_list : list of list
@@ -480,9 +470,9 @@ def make_hieredge(bs_list):
 def make_hiergraph(bs_list):
     return ftn_make_hiergraph.make_hiergraph(bs_list)
 # %%
-def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
+def from_csv(path,info=True,ker_basis="svd",cq_basis="rref"):
     """ load reaction network from csv file
-    
+
     Parameters
     ----------
     path : str
@@ -490,9 +480,9 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     info : bool, optional
         if True, print information of the network, by default True
     ker_basis : str, optional
-        "numpy" or "sympy", by default "numpy"
+        "svd" or "rref", by default "svd"
     cq_basis : str, optional
-        "numpy" or "sympy", by default "numpy"
+        "svd" or "rref", by default "rref"
     """
     reaction_list=[]
     with open(path, 'r') as f:
@@ -510,18 +500,56 @@ def from_csv(path,info=True,ker_basis="numpy",cq_basis="numpy"):
     return ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
 
-    
+def from_pandas (df, sep = " ",info=True,ker_basis="svd",cq_basis="rref"):
+    df=df.copy ()
+
+    if len (df.columns)==3:
+        df.columns = ["Reaction_index", "Substrate", "Product"]
+        df["Activator"] = np.nan
+        df["Inhibitor"] = np.nan
+    elif len (df.columns)==4:
+        df.columns = ["Reaction_index", "Substrate", "Product", "Activator"]
+        df["Inhibitor"] = np.nan
+    elif len (df.columns)==5:
+        df.columns = ["Reaction_index", "Substrate", "Product", "Activator", "Inhibitor"]
+    else:
+        raise ValueError ("The number of columns in the dataframe must be between 3 and 5")
+
+
+    if not df["Reaction_index"].dtypes =='str':
+        df["Reaction_index"]= df["Reaction_index"].astype(str)
+
+    df.loc[df["Substrate"].isnull(), "Substrate"]="out"
+    df.loc[df["Product"].isnull(), "Product"]="out"
+
+    df["Substrate"] = df["Substrate"].apply (lambda x:x.split (sep))
+    df["Product"] = df["Product"].apply (lambda x:x.split (sep))
+    df["Activator"] = df["Activator"].apply (lambda x:x.split (sep) if not pd.isnull(x) else "nan")
+    df["Inhibitor"] = df["Inhibitor"].apply(lambda x:x.split (sep) if not pd.isnull(x) else "nan")
+
+    list_df=  df.values.tolist()
+
+    input_crn=[]
+    for reac in list_df:
+        if reac[4]!= 'nan':
+            input_crn.append ([k if k !="nan" else [] for k in reac])
+        else:
+            input_crn.append ([x for x in reac if x != 'nan'] )
+    return ReactionNetwork(input_crn,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
+
+
+
 
 def from_cobra(model,info=True):
     """convert cobra model to ReactionNetwork object
-    
+
     Parameters
     ----------
     model : cobra model
         cobra model
     info : bool, optional
         if True, print information of the network, by default True
-    
+
     Returns
     -------
     ReactionNetwork
@@ -559,14 +587,14 @@ def from_cobra(model,info=True):
 
 def to_cobra(network,name=''):
     """convert to cobra model
-    
+
     Parameters
     ----------
     network : ReactionNetwork
         ReactionNetwork object
     name : str, optional
         name of the model, by default ''
-        
+
     Returns
     -------
     model : cobra.Model
@@ -611,7 +639,7 @@ def to_cobra(network,name=''):
 
 def add_reactions(network,newrxns,info=True):
     """add reactions to network
-    
+
     Parameters
     ----------
     network : ReactionNetwork
@@ -629,4 +657,5 @@ def add_reactions(network,newrxns,info=True):
             raise(Exception)
     reaction_list = network.reaction_list+newrxns
     return ReactionNetwork(reaction_list,info=info)
+
 #%%
