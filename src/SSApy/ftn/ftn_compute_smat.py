@@ -53,16 +53,16 @@ def determine_sign (val):
         return "-"
     else:
         return "0"
-determine_sign_vec = np.vectorize(determine_sign)
 
 def fun_integrate (val1,val2):
     if val1==val2:
         return val1
     else:
         return "+/-"
-fun_integrate_vec = np.vectorize(fun_integrate)
 
 def compute_smat_sign (network, N):
+    determine_sign_vec = np.vectorize(determine_sign)
+    fun_integrate_vec = np.vectorize(fun_integrate)
     smat= network.compute_smat()
     result_array = determine_sign_vec(smat)#Detrmine signs of Smat.
     for _ in range (N-1):
@@ -71,5 +71,6 @@ def compute_smat_sign (network, N):
         #For each entry of Smat, if check if the sign is equal to the sign of previous result
         result_array=np.array ([fun_integrate_vec (x,y) for (x, y) in zip(result_array, sign_array_now)])
     return result_array
+
 class LargeErrorSmat(Exception):
     pass
