@@ -1,25 +1,25 @@
-#%%
 import numpy as np
 from . import ftn_compute_smat
+
 def compute_bs_meansmat(network, N, large_error=True, detectCQ=True):  # N;smatの計算回数
     """compute bss from smat_mean.
-    
-    Args: 
+
+    Args:
         network (ReactionNetwork): ReactionNetwork class
         N (int): number of smat_mean calculation
         large_error (bool, optional): if True, use large error. Defaults to True.
         detectCQ (bool, optional): if True, detect conserved quantities. Defaults to True.
-    
+
     Returns:
         list: list of bs
-    
+
     Examples:
         >>> bs_list = ReactionNetwork.compute_bs(network)
     """
 
     if not detectCQ:
         return compute_bs_meansmat_noCQ(network, N, large_error)
-    
+
     # compute mean of S-matrix
     smat_mean = ftn_compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
 
@@ -58,7 +58,7 @@ def compute_bs_meansmat(network, N, large_error=True, detectCQ=True):  # N;smat�
                 eff_rc=np.sort(np.unique(eff_rc))
             else:
                 break
-        
+
         # convert compounds and reactions from index to names
         lsetcpds=[network.cpd_list_noout[m] for m in eff_m]
         lsetrcs=[network.reac_cons_list[r][0] for r in eff_rc]# name only
@@ -75,7 +75,7 @@ def compute_bs_meansmat(network, N, large_error=True, detectCQ=True):  # N;smat�
 
 def compute_bs_meansmat_noCQ(network, N, large_error=True):
     """compute bss from smat_mean without detecting conserved quantities."""
-    
+
     smat_mean = ftn_compute_smat.compute_smat_mean(network,N=N,large_error=large_error)
 
     #conver smat to binary form by threshold
@@ -113,7 +113,7 @@ def compute_bs_meansmat_noCQ(network, N, large_error=True):
                 eff_r=np.sort(np.unique(eff_r))
             else:
                 break
-        
+
         # convert compounds and reactions from index to names
         lsetcpds=[network.cpd_list_noout[m] for m in eff_m]
         lsetrxns=[network.reac_cons_list[r][0] for r in eff_r]# name only
