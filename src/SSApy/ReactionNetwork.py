@@ -12,8 +12,6 @@ from .ftn import ftn_make_hiergraph
 from .ftn import ftn_compute_smat
 # from . import func
 import cobra
-from sklearn.decomposition import TruncatedSVD
-from scipy.sparse import csr_matrix
 #import sympy
 '''
 format of reaction_list
