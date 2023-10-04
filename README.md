@@ -1,26 +1,28 @@
 # SSApy
 
-This package applies structure sensitivity analysis to chemical reaction networks to discover buffering structures within them.
+This package applies structural sensitivity analysis to chemical reaction networks to discover buffering structures within them.
 
 
 ## Installation
-To install SSApy, run the following command:
+To install ssapy, run the following command:
 
-  pip install (path to the repository setup.py is located)
-
-The "-e" option enables you to edit the package by yourself.
+```
+pip install ssapy
+```
+The pygraphviz package is required to visualize the hierarchy graph of buffering structures.
+See https://pygraphviz.github.io/documentation/stable/install.html for the installation of pygraphviz.
 
 ## Usage
-Once you have installed SSApy, you can import ReactionNetwork module from the SSApy package
+Once you have installed ssapy, you can import ```ReactionNetwork``` module from the ssapy package
 ```
-from SSApy import ReactionNetwork
+from ssapy import ReactionNetwork
 ```
-In SSApy, reaction networks are treated as instances of the ReactionNetwork.ReactionNetwork which contains information about reaction names, metabolites, and stoichiometric matrices.
-To read a network from a csv file, use ReactionNetwork.from_csv(" PATH_TO_CSV") where the csv file must contain reaction formulas such as "reaction_idx, substrate1 substrate2, product1 product2" (an example can be found in demo_network1.csv).
+In ssapy, reaction networks are treated as instances of the ```ReactionNetwork.ReactionNetwork``` which contains information about reaction names, metabolites, and stoichiometric matrices.
+To read a network from a csv file, use ```ReactionNetwork.from_csv(" PATH_TO_CSV")``` where the csv file must contain reaction formulas such as "reaction_idx, substrate1 substrate2, product1 product2" (an example can be found in demo_network1.csv).
 If the reaction equation contains more than one metabolite, separate them with a space.
-If the coefficient of a metabolite is n, it will appear n times on one side.
-Outflow reactions or inflow reactions are represented as `['outflow_name',['out'],['metabolite_name]]` or `['outflow_name',['out'],['metabolite_name]]`.
-The metabolite name 'out' is reserved for the node corresponding to outside of the network, which does not appear in the stoichiometric matrix $\nu$.
+If the coefficient of a metabolite is $n$, it will appear n times on one side.
+Outflow reactions or inflow reactions are represented as `['inflow_name',['metabolite_name'],['out']]` or `['outflow_name',['out'],['metabolite_name']]`.
+The metabolite name 'out' is reserved for the node corresponding to outside of the network, which does not appear in the stoichiometric matrix.
 ```
 network = ReactionNetwork.from_csv("PATH_TO_CSV")
 network.info()
@@ -31,7 +33,7 @@ print(network.cpd_list_nooout)
 ```
 Structural sensitivity analysis computes the network sensitivity to parameter perturbation from the A-matrix, which reflects network structure.
 `ReactionNetwork.compute_amat(network)` returns an A-matrix with random real values in nonzero entries of $\partial \boldsymbol r / \partial \boldsymbol x$, a basis of $\ker \nu$, and a basis of $\ker \nu^\top$.
-ReactionNetwork class uses `scipy.linalg.null_space` to obtain bases by default, but you can als0 use `ker_basis='rref'` option.
+`ReactionNetwork` class uses `scipy.linalg.null_space` to obtain bases by default, but you can also use `ker_basis='rref'` option.
 `ker_bais` or `coker_basis` accepts ndarray or list to provide a self-made bases.
 ```
 # numpy is used to calculate a basis by default.
@@ -54,7 +56,7 @@ graph = ReactionNetwork.make_hiergraph(bs_list)
 graph.draw(PATH_SAVE)
 ```
 
-Network instances of SSApy can be converted to cobra models of `cobrapy` package by `ReactionNetwork.to_cobra(network, name='')` function.
+Network instances of ssapy can be converted to cobra models of `cobrapy` package by `ReactionNetwork.to_cobra(network, name='')` function.
 Conversely, cobra models can be translated to `ReactionNetwork.ReactionNetwork` instances.
 ```
 cbmodel = ReactionNetwork.to_cobra(network, name='')
