@@ -1,6 +1,6 @@
 # Demo use of the ReactionNetwork class.
 
-from SSApy import ReactionNetwork
+from ssapy import ReactionNetwork
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib
@@ -28,3 +28,4 @@ hier_agraph.draw(f'./result/hier_demo_network1.png')
 smat_sign=network.compute_smat_sign(N=100)
 df_sign = pd.DataFrame (smat_sign[:network.M,], index = network.cpd_list_noout, columns = [x[0] for x in network.reac_cons_list])
 df_sign.to_csv ("./result/demo_network1_sign.csv")
+#%%
