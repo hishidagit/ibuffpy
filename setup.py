@@ -19,7 +19,7 @@ with open('./README.md', 'r') as f:
 
 setup(
     # version=ssapy.__version__,
-    version='0.0.2b4',
+    version='0.0.3',
     name='ssapy',
     description='A Python package for appling Structural Sensitivity Analysis to reaction networks.',
     long_description=long_description,

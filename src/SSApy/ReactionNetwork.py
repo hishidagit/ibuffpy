@@ -27,7 +27,7 @@ class ReactionNetwork:
             List of reactions. Each reaction contains at least 3 elements, that is name, list of substrate names, and list of product names.
             If the reaction is regulated, 4th element is a list of activator names, and 5th element is a list of inhibitor names.
         info : bool, optional
-            If True, print information about the network when constructed, by default True
+            If True, print information about the network when constructed, by default False
         ker_basis : str or numpy.ndarray, default = "svd"
             If "svd", compute the basis of nullspace of stoichiometric matrix using singular value decomposition (with "scipy.linalg.null_space").
             If "rref", compute the basis by putting a matrix into RREF.
@@ -45,7 +45,7 @@ class ReactionNetwork:
         --------
         >>> reaction_list = [('reaction0', [substrate0, substrate1], [product0, product1])
                             ('reaction1', [substrate0], [product2], [activator0],[inhibitor0])]
-        >>> network = ReactionNetwork(reaction_list, info=True, ker_basis="numpy", cq_basis="numpy")
+        >>> network = ReactionNetwork(reaction_list, info=True, ker_basis="rref", cq_basis="rref")
     """
 
     def __init__(self, reaction_list_input, info=False, ker_basis="svd", cq_basis="rref"):
