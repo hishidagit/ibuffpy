@@ -55,10 +55,3 @@ and visualise them by
 graph = ReactionNetwork.make_hiergraph(bs_list)
 graph.draw(PATH_SAVE)
 ```
-
-Network instances of ssapy can be converted to cobra models of `cobrapy` package by `ReactionNetwork.to_cobra(network, name='')` function.
-Conversely, cobra models can be translated to `ReactionNetwork.ReactionNetwork` instances.
-```
-cbmodel = ReactionNetwork.to_cobra(network, name='')
-network_ssa = ReactionNetwork.from_cobra(cbmodel)
-```

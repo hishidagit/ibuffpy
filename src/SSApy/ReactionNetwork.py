@@ -11,7 +11,6 @@ from .ftn import ftn_compute_nullspace
 from .ftn import ftn_make_hiergraph
 from .ftn import ftn_compute_smat
 # from . import func
-import cobra
 #import sympy
 '''
 format of reaction_list
@@ -535,105 +534,6 @@ def from_pandas (df, sep = " ",info=True,ker_basis="svd",cq_basis="rref"):
             input_crn.append ([x for x in reac if x != 'nan'] )
     return ReactionNetwork(input_crn,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
-
-
-
-def from_cobra(model,info=True):
-    """convert cobra model to ReactionNetwork object
-
-    Parameters
-    ----------
-    model : cobra model
-        cobra model
-    info : bool, optional
-        if True, print information of the network, by default True
-
-    Returns
-    -------
-    ReactionNetwork
-    """
-    # convert to SSA network
-    reaction_list=[]
-    for reac in model.reactions:
-        # objective function
-        # if 'BIOMASS' in reac.id:
-        #     continue
-        lhs=[]
-        rhs=[]
-        for reactant in reac.reactants:
-            coef=abs(int(reac.metabolites[reactant]))
-            lhs+=[reactant.id]*coef
-        for product in reac.products:
-            coef=abs(int(reac.metabolites[product]))
-            rhs+=[product.id]*coef
-        if len(lhs)==0:
-            lhs=['out']
-        if len(rhs)==0:
-            rhs=['out']
-        if not reac.reversibility:
-            reaction_list.append([reac.id,lhs,rhs])
-        elif lhs==['out'] or rhs==['out']: # reversible outflow
-            reaction_list.append([reac.id,lhs,rhs])
-            reaction_list.append([reac.id+'_rev',rhs,lhs])
-
-        # reversible reaction has products as its regulator
-        else:
-            reaction_list.append([reac.id,lhs,rhs,rhs])
-
-    network=ReactionNetwork(reaction_list,info=info)
-    return network
-
-def to_cobra(network,name=''):
-    """convert to cobra model
-
-    Parameters
-    ----------
-    network : ReactionNetwork
-        ReactionNetwork object
-    name : str, optional
-        name of the model, by default ''
-
-    Returns
-    -------
-    model : cobra.Model
-    """
-    # convert from SSA network to cobra model
-    model_name=name
-    model=cobra.Model(model_name)
-
-    for cpdname in network.cpd_list_noout:
-        metab=cobra.Metabolite(cpdname)
-        model.add_metabolites(metab)
-    for reac in network.reaction_list_reg:
-        #reaction name of cobra cannot contain white-space(" ").
-        reacname=reac[0].replace(' ','_')
-        cobra_reac=cobra.Reaction(reacname)
-        metab_dict=dict()
-
-        for cpd in reac[1]:#lhs
-            if cpd!='out':
-                metab_dict[model.metabolites.get_by_id(cpd)]=-reac[1].count(cpd)
-            else:
-                0
-        for cpd in reac[2]:#rhs
-            if cpd!='out':
-                metab_dict[model.metabolites.get_by_id(cpd)]=reac[2].count(cpd)
-            else:
-                0
-        cobra_reac.add_metabolites(metab_dict)
-
-        #if reaction is reversible, reac[2] is in reac[1]
-        if len(reac)>3 and reac[3]==reac[2]:
-            if reac[2]!=reac[3]:
-                print('reaction_list format is not for cobra model')
-                raise(Exception)
-            else:
-                print(reac[0])
-                cobra_reac.lower_bound=-1000
-
-        model.add_reactions([cobra_reac])
-
-    return model
 
 def add_reactions(network,newrxns,info=True):
     """add reactions to network

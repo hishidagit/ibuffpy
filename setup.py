@@ -10,7 +10,6 @@ INSTALL_REQUIRES = [
     'tqdm>=4.66.1',
     'sympy>=1.12',
     'networkx>=3.1',
-    'cobra!=0.26.0',
     'scikit-learn>=1.3.1',
 ]
 
