@@ -1,5 +1,5 @@
 from setuptools import find_packages, setup
-# import ssapy
+# import ibuffpy
 
 
 INSTALL_REQUIRES = [
@@ -17,9 +17,9 @@ with open('./README.md', 'r') as f:
     long_description = f.read()
 
 setup(
-    # version=ssapy.__version__,
-    version='0.0.3',
-    name='ssapy',
+    # version=ibuffpy.__version__,
+    version='0.1.0',
+    name='ibuffpy',
     description='A Python package for appling Structural Sensitivity Analysis to reaction networks.',
     long_description=long_description,
     long_description_content_type='text/markdown',

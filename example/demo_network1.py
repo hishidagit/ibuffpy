@@ -1,6 +1,6 @@
 # Demo use of the ReactionNetwork class.
 
-from ssapy import ReactionNetwork
+from ibuffpy import ReactionNetwork
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib

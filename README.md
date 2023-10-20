@@ -1,23 +1,23 @@
-# SSApy
+# ibuffpy
 
 This package applies structural sensitivity analysis to chemical reaction networks to discover buffering structures within them.
 
 
 ## Installation
-To install ssapy, run the following command:
+To install ibuffpy, run the following command:
 
 ```
-pip install ssapy
+pip install ibuffpy
 ```
 The pygraphviz package is required to visualize the hierarchy graph of buffering structures.
 See https://pygraphviz.github.io/documentation/stable/install.html for the installation of pygraphviz.
 
 ## Usage
-Once you have installed ssapy, you can import ```ReactionNetwork``` module from the ssapy package
+Once you have installed ibuffpy, you can import ```ReactionNetwork``` module from the ibuffpy package
 ```
-from ssapy import ReactionNetwork
+from ibuffpy import ReactionNetwork
 ```
-In ssapy, reaction networks are treated as instances of the ```ReactionNetwork.ReactionNetwork``` which contains information about reaction names, metabolites, and stoichiometric matrices.
+In ibuffpy, reaction networks are treated as instances of the ```ReactionNetwork.ReactionNetwork``` which contains information about reaction names, metabolites, and stoichiometric matrices.
 To read a network from a csv file, use ```ReactionNetwork.from_csv(" PATH_TO_CSV")``` where the csv file must contain reaction formulas such as "reaction_idx, substrate1 substrate2, product1 product2" (an example can be found in demo_network1.csv).
 If the reaction equation contains more than one metabolite, separate them with a space.
 If the coefficient of a metabolite is $n$, it will appear n times on one side.
