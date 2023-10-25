@@ -34,10 +34,10 @@ print(network.cpd_list_nooout)
 Structural sensitivity analysis computes the network sensitivity to parameter perturbation from the A-matrix, which reflects network structure.
 `ReactionNetwork.compute_amat(network)` returns an A-matrix with random real values in nonzero entries of $\partial \boldsymbol r / \partial \boldsymbol x$, a basis of $\ker \nu$, and a basis of $\ker \nu^\top$.
 `ReactionNetwork` class uses `scipy.linalg.null_space` to obtain bases by default, but you can also use `ker_basis='rref'` option.
-`ker_bais` or `coker_basis` accepts ndarray or list to provide a self-made bases.
+`ker_bais` or `cq_basis` accepts ndarray or list to provide a self-made bases.
 ```
 # numpy is used to calculate a basis by default.
-network = ReactionNetwork.from_csv(path_to_csv, ker_basis='svd', coker_basis='rref')
+network = ReactionNetwork.from_csv(path_to_csv, ker_basis='svd', cq_basis='rref')
 
 # augumented matrix
 amat = network.compute_amat()
