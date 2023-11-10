@@ -1,7 +1,7 @@
 # ibuffpy
 
 This package applies structural sensitivity analysis to chemical reaction networks to discover buffering structures within them.
-
+For details of the algorithm and mathematical backgrounds, see https://www.biorxiv.org/content/10.1101/2023.10.12.561372v2 .
 
 ## Installation
 To install ibuffpy, run the following command:
@@ -21,7 +21,7 @@ In ibuffpy, reaction networks are treated as instances of the ```ReactionNetwork
 To read a network from a csv file, use ```ReactionNetwork.from_csv(" PATH_TO_CSV")``` where the csv file must contain reaction formulas such as "reaction_idx, substrate1 substrate2, product1 product2" (an example can be found in demo_network1.csv).
 If the reaction equation contains more than one metabolite, separate them with a space.
 If the coefficient of a metabolite is $n$, it will appear n times on one side.
-Outflow reactions or inflow reactions are represented as `['inflow_name',['metabolite_name'],['out']]` or `['outflow_name',['out'],['metabolite_name']]`.
+Outflow reactions or inflow reactions are represented as `['inflow_name',['out'],['metabolite_name']]` or `['outflow_name',['metabolite_name'],['out']]`.
 The metabolite name 'out' is reserved for the node corresponding to outside of the network, which does not appear in the stoichiometric matrix.
 ```
 network = ReactionNetwork.from_csv("PATH_TO_CSV")
