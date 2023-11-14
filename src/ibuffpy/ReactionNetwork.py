@@ -120,10 +120,10 @@ class ReactionNetwork:
         #calculate nullspace (cycle)
         if not isinstance(ker_basis, (np.ndarray, list)):
             if ker_basis == "svd":
-                ns = ftn_compute_nullspace.cal_nullspace_svd (self.stoi, error=1.0e-10)
+                ns = ftn_compute_nullspace.cal_nullspace_svd (self.stoi, tol=1.0e-10)
 
             elif ker_basis == "rref":
-                ns = ftn_compute_nullspace.cal_nullspace_rref (self.stoi, error=1.0e-10)
+                ns = ftn_compute_nullspace.cal_nullspace_rref (self.stoi, tol=1.0e-10)
 
             else:
                 raise ValueError ('ker_basis must be one of "svd", "rref", or a numpy array/list')
@@ -138,10 +138,10 @@ class ReactionNetwork:
         #calculate coker vector (conserved quantity)
         if not isinstance(cq_basis, (np.ndarray, list) ):
             if cq_basis == "rref":
-                ns2 = ftn_compute_nullspace.cal_nullspace_rref (self.stoi.T, error=1.0e-10)
+                ns2 = ftn_compute_nullspace.cal_nullspace_rref (self.stoi.T, tol=1.0e-10)
 
             elif cq_basis == "svd":
-                ns2 = ftn_compute_nullspace.cal_nullspace_svd (self.stoi.T, error=1.0e-10)
+                ns2 = ftn_compute_nullspace.cal_nullspace_svd (self.stoi.T, tol=1.0e-10)
 
             else:
                 raise ValueError ('cq_basis must be one of "rref", "svd", or a numpy array/list')
@@ -153,7 +153,8 @@ class ReactionNetwork:
         else:#basis of conserved quantity can be given by yourself
             self.ns2 = np.array (cq_basis).T#cq_basis sholud be a column vector→ns2 is a row vector
 
-
+        if self.M+self.ns.shape[1] != self.R+self.ns2.shape[0]:
+            raise ValueError(f'dimension of nullspace is not correct: M={self.M}, R={self.R}, ns={self.ns.shape}, ns2={self.ns2.shape}')
         self.A = self.M+len(self.ns.T)
         self.graph = [self.cpd_list_noout, self.reaction_list]
         self.cons_list, self.cons_list_index=self.make_conslist()
@@ -187,11 +188,21 @@ class ReactionNetwork:
     def make_stoi(self):
         """make stoichiometric matrix"""
         stoi = np.zeros((self.M, self.R), dtype=float)
-        for r,reac in enumerate(self.reaction_list):
-            for m,cpd in enumerate(self.cpd_list_noout):
-                cpd_sub = reac[1].count(cpd)  # count in substrate
-                cpd_pro = reac[2].count(cpd)  # count in product
-                stoi[m, r] = -cpd_sub+cpd_pro
+        for r,rxn in enumerate(self.reaction_list):
+            # lhs
+            for cpd in rxn[1]:
+                if cpd == 'out':
+                    continue
+                else:
+                    m = self.cpd_list_noout.index(cpd)
+                    stoi[m, r] -= 1
+            # rhs
+            for cpd in rxn[2]:
+                if cpd == 'out':
+                    continue
+                else:
+                    m = self.cpd_list_noout.index(cpd)
+                    stoi[m, r] += 1
         return stoi
 
     def make_conslist(self):
@@ -243,13 +254,38 @@ class ReactionNetwork:
                     #rmat[r, m] = np.random.rand()+0.1
         # create rmat (New by Yamauchi) (distinguish positive regulation and negative regulation)
         rmat = np.zeros((R, M))
-        for i,r in enumerate(reaction_list_reg):
-            for j,m in enumerate(cpd_list_noout):
-                if m in reaction_list_noid[i][0]:# subに含まれる
-                    rmat[i, j] = np.random.rand()*random_max+random_min
-                    if neg_reg:=negative_regulation.get(r[0]):
-                        if m in neg_reg:#When m is a negaive regulator of the reaction
-                            rmat[i, j] = -np.random.rand()*random_max-random_min
+        rg = np.random.default_rng()
+        for i,rxn in enumerate(reaction_list_reg):
+            # regulation by substrates
+            for cpd in rxn[1]:
+                if cpd == 'out':
+                    continue
+                else:
+                    m = self.cpd_list_noout.index(cpd)
+                    rmat[i, m] = rg.uniform(random_min, random_max)
+            # positive regulation
+            if len(rxn)>3:
+                for cpd in rxn[3]:
+                    if cpd == 'out':
+                        continue
+                    else:
+                        m = self.cpd_list_noout.index(cpd)
+                        rmat[i, m] = rg.uniform(random_min, random_max)
+            # negative regulation
+            if len(rxn)>4:
+                for cpd in rxn[4]:
+                    if cpd == 'out':
+                        continue
+                    else:
+                        m = self.cpd_list_noout.index(cpd)
+                        rmat[i, m] = -rg.uniform(random_min, random_max)
+        # for i,r in enumerate(reaction_list_reg):
+        #     for j,m in enumerate(cpd_list_noout):
+        #         if m in reaction_list_noid[i][0]:# subに含まれる
+        #             rmat[i, j] = np.random.rand()*random_max+random_min
+        #             if neg_reg:=negative_regulation.get(r[0]):
+        #                 if m in neg_reg:#When m is a negaive regulator of the reaction
+        #                     rmat[i, j] = -np.random.rand()*random_max-random_min
         # create amat
         amat[:R, :M] = rmat
 
@@ -535,7 +571,7 @@ def from_pandas (df, sep = " ",info=True,ker_basis="svd",cq_basis="rref"):
     return ReactionNetwork(input_crn,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
 
 
-def add_reactions(network,newrxns,info=True):
+def add_reactions(network,newrxns,info=True, ker_basis="svd", cq_basis="rref"):
     """add reactions to network
 
     Parameters
@@ -554,6 +590,99 @@ def add_reactions(network,newrxns,info=True):
             print('reaction name already exists')
             raise(Exception)
     reaction_list = network.reaction_list+newrxns
-    return ReactionNetwork(reaction_list,info=info)
+    return ReactionNetwork(reaction_list,info=info, ker_basis=ker_basis, cq_basis=cq_basis)
 
 #%%
+
+def from_cobra(model,info=True, ker_basis="svd", cq_basis="rref"):
+    """convert cobra model to ReactionNetwork object
+    Parameters
+    ----------
+    model : cobra model
+        cobra model
+    info : bool, optional
+        if True, print information of the network, by default True
+    Returns
+    -------
+    ReactionNetwork
+    """
+    # convert to SSA network
+    reaction_list=[]
+    for reac in model.reactions:
+        # objective function
+        # if 'BIOMASS' in reac.id:
+        #     continue
+        lhs=[]
+        rhs=[]
+        for reactant in reac.reactants:
+            coef=abs(int(reac.metabolites[reactant]))
+            lhs+=[reactant.id]*coef
+        for product in reac.products:
+            coef=abs(int(reac.metabolites[product]))
+            rhs+=[product.id]*coef
+        if len(lhs)==0:
+            lhs=['out']
+        if len(rhs)==0:
+            rhs=['out']
+        if not reac.reversibility:
+            reaction_list.append([reac.id,lhs,rhs])
+        elif lhs==['out'] or rhs==['out']: # reversible outflow
+            reaction_list.append([reac.id,lhs,rhs])
+            reaction_list.append([reac.id+'_rev',rhs,lhs])
+
+        # reversible reaction has products as its regulator
+        else:
+            reaction_list.append([reac.id,lhs,rhs,rhs])
+
+    network=ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
+    return network
+
+def to_cobra(network,name=''):
+    """convert to cobra model
+    Parameters
+    ----------
+    network : ReactionNetwork
+        ReactionNetwork object
+    name : str, optional
+        name of the model, by default ''
+    Returns
+    -------
+    model : cobra.Model
+    """
+    # convert from SSA network to cobra model
+    model_name=name
+    model=cobra.Model(model_name)
+
+    for cpdname in network.cpd_list_noout:
+        metab=cobra.Metabolite(cpdname)
+        model.add_metabolites(metab)
+    for reac in network.reaction_list_reg:
+        #reaction name of cobra cannot contain white-space(" ").
+        reacname=reac[0].replace(' ','_')
+        cobra_reac=cobra.Reaction(reacname)
+        metab_dict=dict()
+
+        for cpd in reac[1]:#lhs
+            if cpd!='out':
+                metab_dict[model.metabolites.get_by_id(cpd)]=-1*reac[1].count(cpd)
+            else:
+                0
+        for cpd in reac[2]:#rhs
+            if cpd!='out':
+                metab_dict[model.metabolites.get_by_id(cpd)]=reac[2].count(cpd)
+            else:
+                0
+        cobra_reac.add_metabolites(metab_dict)
+
+        #if reaction is reversible, reac[2] is in reac[1]
+        if len(reac)>3 and reac[3]==reac[2]:
+            if reac[2]!=reac[3]:
+                print('reaction_list format is not for cobra model')
+                raise(Exception)
+            else:
+                print(reac[0])
+                cobra_reac.lower_bound=-1000
+
+        model.add_reactions([cobra_reac])
+
+    return model
