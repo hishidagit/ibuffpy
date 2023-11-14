@@ -1,45 +1,40 @@
 import numpy as np
+from scipy import linalg
+import scipy.sparse.linalg as sla
 
-def rowreduce2(matrix, error=1.0e-10):
+def rowreduce2(matrix, tol=1.0e-10):
     pivot = []
     mat=np.array(matrix, dtype = float)
     if len(mat)==0:
         return mat, pivot #empty matrix
     #rank=np.linalg.matrix_rank(mat)
-
     row, col= mat.shape
-
-    #i:row j:col
-    i,j,k=0,0,0
-
     #kはreduceが終わった行の数。
-    while True:
-
-        #k-1行まで掃き出しが終わっている
-        #k行以下に注目する
-        #i,j=k,k←元のコード。#jはkより大きくてもいいはず。これでもいいが探索に無駄が生じる。
+    for k in range(row):
+        # the largest row index with pivot is k-1
+        # focus on rows from k to the last row
+        #i:row j:col
         i = k
-        #k行以下で、非零成分が最初に現れる列をj
-        while all([abs(elem)<error for elem in mat[k:,j]]):
-            j+=1
-            if j == col:
-                #assert rank == k
-                return mat, pivot
+        
+        # if all elements from k to last row is zero, return the matrix
+        if np.max(np.abs(mat[k:,:])) < tol:
+            return mat, pivot
+        
+        # j is the first column index with non-zero element in rows from k to the last row
+        sum_k_to_last_row = np.sum(np.abs(mat[k:,:]), axis=0)
+        j = np.where(sum_k_to_last_row > tol)[0][0]
 
         pivot.append (j)#j列がpivotになることは確定。
         #j列目の、k行以下で、非ゼロ成分を最も上に持つ行をi行とする
-        #以下のwhileは、理屈上は、どこかで必ず止まるはず。
-        while abs(mat[i,j])<error:
-            i=i+1
-            if i == row:
-                raise ("something is wrong")
-
-
+        # the row index with nonzero element in the j-th column from k to the last row is set to be a pivot
+        i = k + np.argmax(np.abs(mat[k:,j])) 
 
         #i行とk行を入れ替える
+        # swap i-th row and k-th row
         mat[[k,i]]=mat[[i,k]]
 
         #ピボットを1に
+        # make the pivot element 1
         mat[k]=mat[k]/mat[k,j]
 
         #j列のk行目以外の要素を0にする
@@ -47,23 +42,26 @@ def rowreduce2(matrix, error=1.0e-10):
             if r==k:
                 continue
             mat[r]=mat[r]-mat[k]*mat[r,j]
-
-        k+=1
-        if k==row:
-            return mat, pivot
-
-        j+=1
-        #if k==rank:
-            #return mat
-        if j==col:
-            #assert rank == k
-            return mat, pivot
+        # refine zero elements
+        mat = np.where(np.abs(mat) < tol, 0, mat)
+    return mat, pivot
 
 
-def cal_nullspace_rref (matrix, error=1.0e-10):
-    mat = np.array (matrix, dtype = float)
+
+def cal_nullspace_rref (matrix, tol=1.0e-10):
+    mat = np.array(matrix, dtype = float)
+    # calculate nullspace of matrix numerically and convert it to rref (this version may faster?)
+    ker_svd = cal_nullspace_svd(mat, tol=tol)
+    ker_rref = rowreduce2(ker_svd.T, tol=tol)[0].T
+    if len(mat) ==0:
+        return ker_rref
+    if np.max(np.abs(mat @ ker_rref)) > tol:
+        raise ValueError('Error: rref calculation of nullspace vectors have too large error.')
+    return ker_rref
+
+    # calculate nullspace of matrix by converting it to RREF
     n_row, n_col = mat.shape
-    rref, pivot=rowreduce2(mat, error=error)
+    rref, pivot=rowreduce2(mat, tol=tol)
     non_pivot = [i for i in range (n_col) if i not in pivot]#pivotでない列のindex
 
     ker =[]
@@ -84,34 +82,51 @@ def cal_nullspace_rref (matrix, error=1.0e-10):
     if dim_ker>0:
         dot_pro = np.dot (mat, ker.T)
         min_pro= np.min (np.abs (dot_pro))
-        assert min_pro < error, "Nullspace bases might be wrong."
+        assert min_pro < tol, "Nullspace bases might be wrong."
 
 
     return ker.T#Converting ker into a column vector
 
 #calculate nullspace usig SVD
-def cal_nullspace_svd (matrix, error=1.0e-10):
-    from scipy import linalg
+def cal_nullspace_svd (matrix, tol=1.0e-10):
     mat = np.array (matrix, dtype = float)
-    try :
-        ns=linalg.null_space(mat)
 
-    except np.linalg.LinAlgError:
-        from sklearn.decomposition import TruncatedSVD
-        # when network size is large, ns(cycles) are computed using truncated SVD
-        # dimension of nullspace of self.stoi
-        stoich = mat
-        # compute truncated SVD of stoich.T * stoich
-        svd = TruncatedSVD(n_components=stoich.shape[1])
-        svd.fit(stoich.T @ stoich)
-        # vectors of right singular vectors correspoinding to small singular values
-        nullspace_mask = svd.singular_values_ < error
-        nullspace = svd.components_[nullspace_mask].T
-        # check if random estimation is correct
-        if np.linalg.norm(stoich @ nullspace) > error:
-            raise Exception('Error: nullspace estimation is not correct.')
-        else:
-            ns=nullspace
+    # when network size is small, ns(cycles) are computed using null_space
+    if np.max(mat.shape) < 1000:
+        try :
+            ns=linalg.null_space(mat)
+            return ns
+        except np.linalg.LinAlgError:
+            pass
+
+    
+    # when network size is large, ns(cycles) are computed using truncated SVD
+    # dimension of nullspace of self.stoi
+    # from sklearn.decomposition import TruncatedSVD
+    # compute SVD of mat.T * mat
+    mat_hermitian = mat.T @ mat
+    _,s,vh = np.linalg.svd(mat_hermitian,hermitian=True)
+    # _,s,vh = sla.svds(mat.T@mat,which='SM', k=mat.shape[1]-1,solver='arpack')
+    # _,s,vh = sla.svds(mat.T@mat,which='SM', k=mat.shape[1]-1,solver='lobpcg')
+    nullspace_mask = np.abs(s) < tol
+    nullspace = vh[nullspace_mask].T
+    # svd = TruncatedSVD(n_components=mat.shape[1],algorithm='arpack')
+    # svd.fit(mat.T @ mat)
+    # # vectors of right singular vectors correspoinding to small singular values
+    # nullspace_mask = svd.singular_values_ < tol
+    # nullspace = svd.components_[nullspace_mask].T
+    
+    # check if nullspace estimation is correct
+    error = np.max(np.abs(mat @ nullspace))
+
+    # when error is large, scipy.linalg.null_space is used
+    if error > tol:
+        nullspace = linalg.null_space(mat)
+        error=np.max(np.abs(mat @ nullspace))
+    if error > tol:
+        raise Exception('Error: nullspace estimation by svd have too large error:', error)
+    else:
+        ns=nullspace
     return ns#a column vector
 
 #def cal_nullspace_sympy (matrix):
