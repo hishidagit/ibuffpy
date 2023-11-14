@@ -1,0 +1,7 @@
+﻿Reaction_index,Substrate,Product,Activator,Inhibitor
+R1,A,B,,
+R2,B,A,,
+R3,C,D,B,
+R4,D,C,,
+R5,E,F,D,
+R6,F,E,,
