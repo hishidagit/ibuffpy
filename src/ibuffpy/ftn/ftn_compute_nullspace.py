@@ -42,8 +42,8 @@ def rowreduce2(matrix, tol=1.0e-10):
             if r==k:
                 continue
             mat[r]=mat[r]-mat[k]*mat[r,j]
-        # refine zero elements
-        mat = np.where(np.abs(mat) < tol, 0, mat)
+        # # refine zero elements
+        # mat = np.where(np.abs(mat) < tol, 0, mat)
     return mat, pivot
 
 
@@ -54,6 +54,9 @@ def cal_nullspace_rref (matrix, tol=1.0e-10):
     ker_svd = cal_nullspace_svd(mat, tol=tol)
     ker_rref = rowreduce2(ker_svd.T, tol=tol)[0].T
     if len(mat) ==0:
+        return ker_rref
+    if ker_rref.shape[1] == 0:
+        # the nullspace is empty
         return ker_rref
     if np.max(np.abs(mat @ ker_rref)) > tol:
         raise ValueError('Error: rref calculation of nullspace vectors have too large error.')
@@ -92,12 +95,12 @@ def cal_nullspace_svd (matrix, tol=1.0e-10):
     mat = np.array (matrix, dtype = float)
 
     # when network size is small, ns(cycles) are computed using null_space
-    if np.max(mat.shape) < 1000:
-        try :
-            ns=linalg.null_space(mat)
-            return ns
-        except np.linalg.LinAlgError:
-            pass
+    # if np.max(mat.shape) < 1000:
+    try :
+        ns=linalg.null_space(mat)
+        return ns
+    except np.linalg.LinAlgError:
+        pass
 
     
     # when network size is large, ns(cycles) are computed using truncated SVD
