@@ -609,9 +609,31 @@ def from_cobra(model,info=True, ker_basis="svd", cq_basis="rref"):
     # convert to SSA network
     reaction_list=[]
     for reac in model.reactions:
-        # objective function
-        # if 'BIOMASS' in reac.id:
-        #     continue
+        # biomass function have float coefficients
+        # add to reaction_list with coefficient 1, and set float
+        # in the stoichiometric matrix 
+        if 'BIOMASS' in reac.id:
+            lhs=[]
+            rhs=[]
+            for reactant in reac.reactants:
+                lhs+=[reactant.id]
+            for product in reac.products:
+                rhs+=[product.id]
+            if len(lhs)==0:
+                lhs=['out']
+            if len(rhs)==0:
+                rhs=['out']
+            if not reac.reversibility:
+                reaction_list.append([reac.id,lhs,rhs])
+            elif lhs==['out'] or rhs==['out']: # reversible outflow
+                reaction_list.append([reac.id,lhs,rhs])
+                reaction_list.append([reac.id+'_rev',rhs,lhs])
+
+            # reversible reaction has products as its regulator
+            else:
+                reaction_list.append([reac.id,lhs,rhs,rhs])
+            continue
+
         lhs=[]
         rhs=[]
         for reactant in reac.reactants:
@@ -635,6 +657,53 @@ def from_cobra(model,info=True, ker_basis="svd", cq_basis="rref"):
             reaction_list.append([reac.id,lhs,rhs,rhs])
 
     network=ReactionNetwork(reaction_list,info=info,ker_basis=ker_basis,cq_basis=cq_basis)
+    # convert stoich coef of biomass reaction to float
+    stoich_biomass= network.stoi.copy()
+    for rxn in network.reaction_list:
+        if 'BIOMASS' in rxn[0]:
+            bmrxn = model.reactions.get_by_id(rxn[0])
+            for reactant in bmrxn.reactants:
+                stoich_biomass[network.cpd_list_noout.index(reactant.id),network.reactionNames.index(rxn[0])] = float(bmrxn.metabolites[reactant])
+            for product in bmrxn.products:
+                stoich_biomass[network.cpd_list_noout.index(product.id),network.reactionNames.index(rxn[0])] = float(bmrxn.metabolites[product])
+    network.stoi=stoich_biomass
+
+    # update nullspace
+    #calculate nullspace (cycle)
+    if not isinstance(ker_basis, (np.ndarray, list)):
+        if ker_basis == "svd":
+            ns = ftn_compute_nullspace.cal_nullspace_svd (network.stoi, tol=1.0e-10)
+
+        elif ker_basis == "rref":
+            ns = ftn_compute_nullspace.cal_nullspace_rref (network.stoi, tol=1.0e-10)
+
+        else:
+            raise ValueError ('ker_basis must be one of "svd", "rref", or a numpy array/list')
+
+        if len(ns)==0:
+            network.ns=np.empty((network.R,0))
+        else:
+            network.ns=ns
+    else:#basis of nullspace can be given by yournetwork
+        network.ns = ker_basis##ker_basis must be a column vector
+
+    #calculate coker vector (conserved quantity)
+    if not isinstance(cq_basis, (np.ndarray, list) ):
+        if cq_basis == "rref":
+            ns2 = ftn_compute_nullspace.cal_nullspace_rref (network.stoi.T, tol=1.0e-10)
+
+        elif cq_basis == "svd":
+            ns2 = ftn_compute_nullspace.cal_nullspace_svd (network.stoi.T, tol=1.0e-10)
+
+        else:
+            raise ValueError ('cq_basis must be one of "rref", "svd", or a numpy array/list')
+
+        if len(ns2)==0:
+            network.ns2=np.empty((0,network.M))
+        else:
+            network.ns2=ns2.T#Convert ns2 into a row vector
+    else:#basis of conserved quantity can be given by yournetwork
+        network.ns2 = np.array (cq_basis).T#cq_basis sholud be a column vector→ns2 is a row vector
     return network
 
 def to_cobra(network,name=''):
@@ -686,3 +755,5 @@ def to_cobra(network,name=''):
         model.add_reactions([cobra_reac])
 
     return model
+
+# %%
